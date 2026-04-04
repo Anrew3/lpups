@@ -8,6 +8,7 @@ export default defineConfig({
     build: {
       rollupOptions: {
         input: resolve(__dirname, "electron/main.ts"),
+        output: { entryFileNames: "index.js" },
       },
     },
   },
