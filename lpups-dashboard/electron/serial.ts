@@ -11,7 +11,6 @@ import * as path from "path";
 import * as readline from "readline";
 import { UPSData, defaultUPS } from "./types";
 
-const SCRIPTS_DIR = path.join(__dirname, "..", "scripts");
 const RECONNECT_MS = 6000;
 
 export class SerialReader extends EventEmitter {
@@ -20,6 +19,11 @@ export class SerialReader extends EventEmitter {
   private running = false;
   private state: UPSData = { ...defaultUPS, b1: { ...defaultUPS.b1 }, b2: { ...defaultUPS.b2 } };
   private rawBuf: string[] = [];
+
+  constructor(scriptsDir: string) {
+    super();
+    this.scriptsDir = scriptsDir;
+  }
 
   start(): void {
     if (this.running) return;
@@ -41,7 +45,7 @@ export class SerialReader extends EventEmitter {
     const ps = spawn("powershell.exe", [
       "-NoProfile",
       "-ExecutionPolicy", "Bypass",
-      "-File", path.join(SCRIPTS_DIR, "serial-reader.ps1"),
+      "-File", path.join(this.scriptsDir, "serial-reader.ps1"),
     ], { windowsHide: true });
 
     this.proc = ps;

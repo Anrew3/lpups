@@ -9,7 +9,7 @@
     "dev":   "tsup src/plugin.ts --format cjs --outDir bin --no-splitting --watch"
   },
   "dependencies": {
-    "@elgato/streamdeck": "^2.0.0",
+    "@elgato/streamdeck": "0.6.1",
     "ws": "^8.17.1"
   },
   "devDependencies": {
