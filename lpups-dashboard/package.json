@@ -1,12 +1,46 @@
 {
   "name": "lpups-dashboard",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "LPUPS Case Panel — 7\" Dashboard",
   "main": "./out/main/index.js",
   "scripts": {
-    "dev":   "electron-vite dev",
-    "build": "electron-vite build",
-    "start": "electron-vite preview"
+    "dev":          "electron-vite dev",
+    "build":        "electron-vite build",
+    "start":        "electron-vite preview",
+    "dist":         "electron-vite build && electron-builder --win",
+    "dist:portable":"electron-vite build && electron-builder --win portable"
+  },
+  "build": {
+    "appId":       "com.lpups.casepanel",
+    "productName": "LPUPS Dashboard",
+    "copyright":   "Copyright 2025 LPUPS",
+    "directories": {
+      "output":          "release",
+      "buildResources":  "resources"
+    },
+    "files": [
+      "out/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      { "from": "scripts", "to": "scripts", "filter": ["**/*.ps1"] }
+    ],
+    "win": {
+      "target": [
+        { "target": "nsis",     "arch": ["x64"] },
+        { "target": "portable", "arch": ["x64"] }
+      ],
+      "icon":                    "resources/icon.ico",
+      "requestedExecutionLevel": "requireAdministrator"
+    },
+    "nsis": {
+      "oneClick":                      false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut":         true,
+      "createStartMenuShortcut":       true,
+      "shortcutName":                  "LPUPS Dashboard",
+      "runAfterFinish":                true
+    }
   },
   "dependencies": {
     "react":     "^18.3.1",
@@ -14,16 +48,17 @@
     "ws":        "^8.17.1"
   },
   "devDependencies": {
-    "@types/node":       "^20.14.0",
-    "@types/react":      "^18.3.3",
-    "@types/react-dom":  "^18.3.0",
-    "@types/ws":         "^8.5.10",
+    "@types/node":          "^20.14.0",
+    "@types/react":         "^18.3.3",
+    "@types/react-dom":     "^18.3.0",
+    "@types/ws":            "^8.5.10",
     "@vitejs/plugin-react": "^4.3.1",
-    "autoprefixer":      "^10.4.19",
-    "electron":          "^31.2.1",
-    "electron-vite":     "^2.3.0",
-    "postcss":           "^8.4.39",
-    "tailwindcss":       "^3.4.6",
-    "typescript":        "^5.5.3"
+    "autoprefixer":         "^10.4.19",
+    "electron":             "^31.2.1",
+    "electron-builder":     "^24.13.3",
+    "electron-vite":        "^2.3.0",
+    "postcss":              "^8.4.39",
+    "tailwindcss":          "^3.4.6",
+    "typescript":           "^5.5.3"
   }
 }

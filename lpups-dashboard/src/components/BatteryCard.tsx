@@ -1,109 +1,116 @@
 import React from "react";
+import CircularGauge from "./CircularGauge";
 import type { B1Data, B2Data } from "../../electron/types";
 
-// ── helpers ──────────────────────────────────────────────────────────────────
-function pctColor(pct: number): string {
+export function pctColor(pct: number): string {
   if (pct >= 60) return "#3fb950";
   if (pct >= 30) return "#d29922";
   if (pct >= 15) return "#f0883e";
   return "#f85149";
 }
 
-function Bar({ pct, color }: { pct: number; color: string }): React.ReactElement {
+function Stat({ label, value, accent }: { label: string; value: string; accent?: string }) {
   return (
-    <div className="bar-track h-2 w-full mt-1">
-      <div className="bar-fill" style={{ width: `${Math.max(0, Math.min(100, pct))}%`, background: color }} />
+    <div className="flex justify-between items-center text-[10px] py-[3px] border-b border-[#21262d] last:border-0">
+      <span className="text-[#6e7681] uppercase tracking-wider">{label}</span>
+      <span style={accent ? { color: accent } : undefined} className="text-[#c9d1d9] font-semibold">
+        {value}
+      </span>
     </div>
   );
 }
 
-function Row({ label, value }: { label: string; value: string }): React.ReactElement {
-  return (
-    <div className="flex justify-between text-[11px] py-[2px]">
-      <span className="text-[#8b949e]">{label}</span>
-      <span className="text-[#e6edf3]">{value}</span>
-    </div>
-  );
-}
-
-// ── B1 card ───────────────────────────────────────────────────────────────────
-interface B1Props { b1: B1Data }
-
-export function B1Card({ b1 }: B1Props): React.ReactElement {
-  const color = pctColor(b1.capacity);
-  const currentDir = b1.current < 0 ? "↓ discharging" : "↑ charging";
-  const absCurrent = Math.abs(b1.current);
+// ── B1 ────────────────────────────────────────────────────────────────────────
+export function B1Card({ b1 }: { b1: B1Data }): React.ReactElement {
+  const color  = pctColor(b1.capacity);
+  const mA     = Math.abs(b1.current);
+  const dir    = b1.current < 0 ? "↓" : "↑";
 
   return (
-    <div className="rounded-lg bg-[#161b22] border border-[#30363d] p-3 flex flex-col gap-1">
-      <div className="flex items-center justify-between mb-1">
-        <span className="text-[10px] uppercase tracking-widest text-[#8b949e] font-semibold">
+    <div className="flex flex-col items-center gap-2 h-full">
+      <div className="flex items-center justify-between w-full">
+        <span className="text-[9px] uppercase tracking-[0.2em] text-[#6e7681] font-semibold">
           18650 UPS Pack
         </span>
-        <div className="flex items-center gap-2">
+        <div className="flex gap-1.5">
           {b1.acPresent && (
-            <span className="text-[10px] text-[#58a6ff]">⚡ AC</span>
+            <span className="text-[9px] px-1.5 py-0.5 rounded bg-[#58a6ff20] text-[#58a6ff] border border-[#58a6ff40]">
+              AC
+            </span>
           )}
           {b1.charging && (
-            <span className="text-[10px] text-[#3fb950]">CHG</span>
+            <span className="text-[9px] px-1.5 py-0.5 rounded bg-[#3fb95020] text-[#3fb950] border border-[#3fb95040] bolt-pulse">
+              CHG
+            </span>
           )}
         </div>
       </div>
 
-      <div className="flex items-end gap-2">
-        <span className="text-3xl font-bold" style={{ color }}>{b1.capacity}%</span>
-        <span className="text-[11px] text-[#8b949e] mb-1">{(b1.voltage / 1000).toFixed(2)} V</span>
-      </div>
-      <Bar pct={b1.capacity} color={color} />
+      <CircularGauge
+        pct={b1.capacity}
+        color={color}
+        size={130}
+        sublabel={`${(b1.voltage / 1000).toFixed(2)}V`}
+        charging={b1.charging}
+      />
 
-      <div className="mt-2 flex flex-col gap-0">
-        <Row label="Current"     value={`${absCurrent} mA  ${currentDir}`} />
-        <Row label="Temperature" value={`${b1.temperature} °C`} />
+      <div className="w-full flex flex-col">
+        <Stat label="Current"  value={`${mA} mA ${dir}`} />
+        <Stat label="Temp"     value={`${b1.temperature}°C`}
+              accent={b1.temperature > 40 ? "#f0883e" : undefined} />
       </div>
     </div>
   );
 }
 
-// ── B2 card ───────────────────────────────────────────────────────────────────
-interface B2Props { b2: B2Data }
-
-export function B2Card({ b2 }: B2Props): React.ReactElement {
+// ── B2 ────────────────────────────────────────────────────────────────────────
+export function B2Card({ b2 }: { b2: B2Data }): React.ReactElement {
   if (!b2.present) {
     return (
-      <div className="rounded-lg bg-[#161b22] border border-[#30363d] p-3 flex flex-col gap-1">
-        <span className="text-[10px] uppercase tracking-widest text-[#8b949e] font-semibold">
+      <div className="flex flex-col items-center justify-center h-full gap-2">
+        <span className="text-[9px] uppercase tracking-[0.2em] text-[#6e7681] font-semibold w-full">
           12V LiON Pack
         </span>
-        <span className="text-[#6e7681] text-sm mt-2">Not detected</span>
+        <div className="flex flex-col items-center justify-center flex-1 gap-1">
+          <div className="w-16 h-16 rounded-full border-2 border-dashed border-[#30363d] flex items-center justify-center shimmer">
+            <span className="text-[#6e7681] text-lg">?</span>
+          </div>
+          <span className="text-[10px] text-[#6e7681]">Not detected</span>
+        </div>
       </div>
     );
   }
 
-  const color = pctColor(b2.remaining);
+  const color   = pctColor(b2.remaining);
   const runtime = b2.runtimeMins > 0
     ? `${Math.floor(b2.runtimeMins / 60)}h ${b2.runtimeMins % 60}m`
     : "—";
 
   return (
-    <div className="rounded-lg bg-[#161b22] border border-[#30363d] p-3 flex flex-col gap-1">
-      <div className="flex items-center justify-between mb-1">
-        <span className="text-[10px] uppercase tracking-widest text-[#8b949e] font-semibold">
+    <div className="flex flex-col items-center gap-2 h-full">
+      <div className="flex items-center justify-between w-full">
+        <span className="text-[9px] uppercase tracking-[0.2em] text-[#6e7681] font-semibold">
           12V LiON Pack
         </span>
         {b2.charging && (
-          <span className="text-[10px] text-[#3fb950]">⚡ CHARGING</span>
+          <span className="text-[9px] px-1.5 py-0.5 rounded bg-[#3fb95020] text-[#3fb950] border border-[#3fb95040] bolt-pulse">
+            ⚡ CHARGING
+          </span>
         )}
       </div>
 
-      <div className="flex items-end gap-2">
-        <span className="text-3xl font-bold" style={{ color }}>{b2.remaining}%</span>
-        <span className="text-[11px] text-[#8b949e] mb-1">{(b2.voltage / 1000).toFixed(2)} V</span>
-      </div>
-      <Bar pct={b2.remaining} color={color} />
+      <CircularGauge
+        pct={b2.remaining}
+        color={color}
+        size={130}
+        sublabel={`${(b2.voltage / 1000).toFixed(2)}V`}
+        charging={b2.charging}
+      />
 
-      <div className="mt-2 flex flex-col gap-0">
-        <Row label="Draw"        value={`${b2.powerDrawW} W  /  ${b2.avgCurrentMA} mA avg`} />
-        <Row label="Est runtime" value={runtime} />
+      <div className="w-full flex flex-col">
+        <Stat label="Draw"    value={`${b2.powerDrawW}W`} />
+        <Stat label="Runtime" value={runtime}
+              accent={b2.runtimeMins < 30 && b2.runtimeMins > 0 ? "#f85149" : undefined} />
       </div>
     </div>
   );

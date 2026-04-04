@@ -1,18 +1,14 @@
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-*, *::before, *::after {
-  box-sizing: border-box;
-}
+*, *::before, *::after { box-sizing: border-box; }
 
 html, body, #root {
-  width: 100%;
-  height: 100%;
-  margin: 0;
-  padding: 0;
+  width: 100%; height: 100%;
+  margin: 0; padding: 0;
   background: #0d1117;
   color: #e6edf3;
   font-family: 'JetBrains Mono', Consolas, monospace;
@@ -21,30 +17,62 @@ html, body, #root {
   -webkit-user-select: none;
 }
 
-/* Scrollable areas inside panels */
+/* ── Scroll ──────────────────────────────────────────────────────────────── */
 .panel-scroll {
   overflow-y: auto;
   scrollbar-width: thin;
   scrollbar-color: #30363d #0d1117;
 }
-.panel-scroll::-webkit-scrollbar { width: 4px; }
-.panel-scroll::-webkit-scrollbar-track { background: #0d1117; }
+.panel-scroll::-webkit-scrollbar       { width: 3px; }
+.panel-scroll::-webkit-scrollbar-track { background: transparent; }
 .panel-scroll::-webkit-scrollbar-thumb { background: #30363d; border-radius: 2px; }
 
-/* Glow effects */
-.glow-green  { text-shadow: 0 0 8px #3fb950; }
-.glow-yellow { text-shadow: 0 0 8px #d29922; }
-.glow-red    { text-shadow: 0 0 8px #f85149; }
-.glow-blue   { text-shadow: 0 0 8px #58a6ff; }
-
-/* Progress bar */
-.bar-track {
-  background: #21262d;
-  border-radius: 3px;
-  overflow: hidden;
+/* ── SVG gauge arc ───────────────────────────────────────────────────────── */
+.gauge-arc {
+  transition: stroke-dashoffset 0.7s cubic-bezier(0.4, 0, 0.2, 1),
+              stroke 0.4s ease;
 }
-.bar-fill {
-  height: 100%;
-  border-radius: 3px;
-  transition: width 0.4s ease;
+
+/* ── Charging bolt pulse ─────────────────────────────────────────────────── */
+@keyframes bolt-pulse {
+  0%, 100% { opacity: 1;   transform: scale(1);    }
+  50%       { opacity: 0.4; transform: scale(0.92); }
+}
+.bolt-pulse { animation: bolt-pulse 1.4s ease-in-out infinite; }
+
+/* ── Connection status ping ──────────────────────────────────────────────── */
+@keyframes ping {
+  0%   { transform: scale(1);   opacity: 0.9; }
+  70%  { transform: scale(2.4); opacity: 0;   }
+  100% { transform: scale(2.4); opacity: 0;   }
+}
+.status-ping { animation: ping 1.8s cubic-bezier(0, 0, 0.2, 1) infinite; }
+
+/* ── Value change flash ──────────────────────────────────────────────────── */
+@keyframes value-flash {
+  0%   { color: #ffffff; }
+  100% { color: inherit; }
+}
+.value-update { animation: value-flash 0.4s ease-out; }
+
+/* ── Shimmer for no-data state ───────────────────────────────────────────── */
+@keyframes shimmer {
+  0%   { opacity: 0.3; }
+  50%  { opacity: 0.6; }
+  100% { opacity: 0.3; }
+}
+.shimmer { animation: shimmer 2s ease-in-out infinite; }
+
+/* ── Slide-in ────────────────────────────────────────────────────────────── */
+@keyframes slide-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0);   }
+}
+.slide-in { animation: slide-in 0.25s ease-out; }
+
+/* ── Progress bar ────────────────────────────────────────────────────────── */
+.bar-track { background: #21262d; border-radius: 3px; overflow: hidden; }
+.bar-fill  {
+  height: 100%; border-radius: 3px;
+  transition: width 0.5s ease, background 0.4s ease;
 }

@@ -1,7 +1,3 @@
-/**
- * Window type augmentation for the contextBridge API exposed by preload.ts.
- */
-
 import type { UPSData, DiagResult } from "../electron/types";
 
 declare global {
@@ -19,6 +15,8 @@ declare global {
       runDiagnostics():                               void;
       shutdown():                                     void;
       restart():                                      void;
+      showWindow():                                   void;
+      hideWindow():                                   void;
     };
   }
 }

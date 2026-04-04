@@ -1,76 +1,51 @@
-/**
- * preload.ts
- * Exposes a typed IPC API to the renderer via contextBridge.
- */
-
 import { contextBridge, ipcRenderer } from "electron";
 import type { UPSData, DiagResult } from "./types";
 
 contextBridge.exposeInMainWorld("lpups", {
-  // ── UPS data ──────────────────────────────────────────────────────────
   onData(cb: (data: UPSData) => void): () => void {
-    const handler = (_: unknown, d: UPSData) => cb(d);
-    ipcRenderer.on("ups:data", handler);
-    return () => ipcRenderer.removeListener("ups:data", handler);
+    const h = (_: unknown, d: UPSData) => cb(d);
+    ipcRenderer.on("ups:data", h);
+    return () => ipcRenderer.removeListener("ups:data", h);
   },
-
   onEvent(cb: (msg: string) => void): () => void {
-    const handler = (_: unknown, m: string) => cb(m);
-    ipcRenderer.on("ups:event", handler);
-    return () => ipcRenderer.removeListener("ups:event", handler);
+    const h = (_: unknown, m: string) => cb(m);
+    ipcRenderer.on("ups:event", h);
+    return () => ipcRenderer.removeListener("ups:event", h);
   },
-
   onConnect(cb: (port: string) => void): () => void {
-    const handler = (_: unknown, p: string) => cb(p);
-    ipcRenderer.on("ups:connect", handler);
-    return () => ipcRenderer.removeListener("ups:connect", handler);
+    const h = (_: unknown, p: string) => cb(p);
+    ipcRenderer.on("ups:connect", h);
+    return () => ipcRenderer.removeListener("ups:connect", h);
   },
-
   onDisconnect(cb: () => void): () => void {
-    const handler = () => cb();
-    ipcRenderer.on("ups:disconnect", handler);
-    return () => ipcRenderer.removeListener("ups:disconnect", handler);
+    const h = () => cb();
+    ipcRenderer.on("ups:disconnect", h);
+    return () => ipcRenderer.removeListener("ups:disconnect", h);
   },
-
   getState(): Promise<UPSData> {
     return ipcRenderer.invoke("ups:getState");
   },
-
-  // ── Network control ───────────────────────────────────────────────────
   getNetwork(): Promise<"WIFI" | "CELLULAR" | "ERROR"> {
     return ipcRenderer.invoke("net:get");
   },
-
   setNetwork(mode: "wifi" | "cellular"): Promise<"WIFI" | "CELLULAR" | "ERROR"> {
     return ipcRenderer.invoke("net:set", mode);
   },
-
-  // ── Diagnostics ───────────────────────────────────────────────────────
-  onDiagCheck(cb: (check: { status: string; name: string; detail: string }) => void): () => void {
-    const handler = (_: unknown, c: { status: string; name: string; detail: string }) => cb(c);
-    ipcRenderer.on("diag:check", handler);
-    return () => ipcRenderer.removeListener("diag:check", handler);
+  onDiagCheck(cb: (c: { status: string; name: string; detail: string }) => void): () => void {
+    const h = (_: unknown, c: { status: string; name: string; detail: string }) => cb(c);
+    ipcRenderer.on("diag:check", h);
+    return () => ipcRenderer.removeListener("diag:check", h);
   },
-
-  onDiagDone(cb: (result: DiagResult) => void): () => void {
-    const handler = (_: unknown, r: DiagResult) => cb(r);
-    ipcRenderer.on("diag:done", handler);
-    return () => ipcRenderer.removeListener("diag:done", handler);
+  onDiagDone(cb: (r: DiagResult) => void): () => void {
+    const h = (_: unknown, r: DiagResult) => cb(r);
+    ipcRenderer.on("diag:done", h);
+    return () => ipcRenderer.removeListener("diag:done", h);
   },
-
-  runDiagnostics(): void {
-    ipcRenderer.send("diag:run");
-  },
-
-  // ── System control ────────────────────────────────────────────────────
-  shutdown(): void {
-    ipcRenderer.send("sys:shutdown");
-  },
-
-  restart(): void {
-    ipcRenderer.send("sys:restart");
-  },
+  runDiagnostics(): void { ipcRenderer.send("diag:run"); },
+  shutdown():       void { ipcRenderer.send("sys:shutdown"); },
+  restart():        void { ipcRenderer.send("sys:restart"); },
+  showWindow():     void { ipcRenderer.send("tray:show"); },
+  hideWindow():     void { ipcRenderer.send("tray:hide"); },
 });
 
-// Make types available in renderer without importing Electron
 export type {};

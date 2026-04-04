@@ -6,18 +6,18 @@ export default function SystemControl(): React.ReactElement {
   const [step,  setStep]  = useState<Step>("idle");
   const [timer, setTimer] = useState<ReturnType<typeof setTimeout> | null>(null);
 
-  function arm(action: "confirm-shutdown" | "confirm-restart"): void {
+  function arm(action: "confirm-shutdown" | "confirm-restart") {
     setStep(action);
     const t = setTimeout(() => setStep("idle"), 5000);
     setTimer(t);
   }
 
-  function cancel(): void {
+  function cancel() {
     if (timer) clearTimeout(timer);
     setStep("idle");
   }
 
-  function execute(action: "shutdown" | "restart"): void {
+  function execute(action: "shutdown" | "restart") {
     if (timer) clearTimeout(timer);
     setStep("executing");
     if (action === "shutdown") window.lpups.shutdown();
@@ -27,22 +27,26 @@ export default function SystemControl(): React.ReactElement {
   if (step === "executing") {
     return (
       <div className="rounded-lg bg-[#f851491a] border border-[#f85149] p-3 text-center">
-        <span className="text-[#f85149] font-bold text-sm">COMMAND SENT…</span>
+        <div className="text-[#f85149] font-bold text-[11px] uppercase tracking-widest shimmer">
+          Command Sent…
+        </div>
       </div>
     );
   }
 
   if (step === "confirm-shutdown") {
     return (
-      <div className="rounded-lg bg-[#f851491a] border border-[#f85149] p-3 flex flex-col gap-2">
-        <span className="text-[#f85149] font-bold text-[11px] uppercase tracking-widest">
-          Confirm Shutdown (30 s delay)
+      <div className="rounded-lg bg-[#f851491a] border border-[#f85149] p-3 flex flex-col gap-2 slide-in">
+        <span className="text-[9px] text-[#f85149] font-bold uppercase tracking-widest">
+          Confirm — 30s delay
         </span>
         <div className="flex gap-2">
-          <button onClick={() => execute("shutdown")} className="flex-1 bg-[#f85149] text-white rounded py-1 text-[11px] font-bold">
-            YES, SHUT DOWN
+          <button onClick={() => execute("shutdown")}
+            className="flex-1 bg-[#f85149] text-white rounded py-1.5 text-[10px] font-bold hover:bg-[#ff6b6b] transition-colors">
+            Confirm
           </button>
-          <button onClick={cancel} className="flex-1 border border-[#30363d] text-[#c9d1d9] rounded py-1 text-[11px]">
+          <button onClick={cancel}
+            className="flex-1 border border-[#30363d] text-[#8b949e] rounded py-1.5 text-[10px] hover:border-[#6e7681] transition-colors">
             Cancel
           </button>
         </div>
@@ -52,15 +56,17 @@ export default function SystemControl(): React.ReactElement {
 
   if (step === "confirm-restart") {
     return (
-      <div className="rounded-lg bg-[#f0883e1a] border border-[#f0883e] p-3 flex flex-col gap-2">
-        <span className="text-[#f0883e] font-bold text-[11px] uppercase tracking-widest">
-          Confirm Restart (10 s delay)
+      <div className="rounded-lg bg-[#f0883e1a] border border-[#f0883e] p-3 flex flex-col gap-2 slide-in">
+        <span className="text-[9px] text-[#f0883e] font-bold uppercase tracking-widest">
+          Confirm — 10s delay
         </span>
         <div className="flex gap-2">
-          <button onClick={() => execute("restart")} className="flex-1 bg-[#f0883e] text-white rounded py-1 text-[11px] font-bold">
-            YES, RESTART
+          <button onClick={() => execute("restart")}
+            className="flex-1 bg-[#f0883e] text-white rounded py-1.5 text-[10px] font-bold hover:bg-[#ffaa55] transition-colors">
+            Confirm
           </button>
-          <button onClick={cancel} className="flex-1 border border-[#30363d] text-[#c9d1d9] rounded py-1 text-[11px]">
+          <button onClick={cancel}
+            className="flex-1 border border-[#30363d] text-[#8b949e] rounded py-1.5 text-[10px] hover:border-[#6e7681] transition-colors">
             Cancel
           </button>
         </div>
@@ -68,24 +74,19 @@ export default function SystemControl(): React.ReactElement {
     );
   }
 
-  // Idle
   return (
     <div className="rounded-lg bg-[#161b22] border border-[#30363d] p-3 flex flex-col gap-2">
-      <span className="text-[10px] uppercase tracking-widest text-[#8b949e] font-semibold">
+      <span className="text-[9px] uppercase tracking-[0.2em] text-[#6e7681] font-semibold">
         System Control
       </span>
-      <div className="flex gap-2 mt-1">
-        <button
-          onClick={() => arm("confirm-shutdown")}
-          className="flex-1 border border-[#f85149] text-[#f85149] rounded py-1 text-[11px] font-semibold hover:bg-[#f851491a] transition-colors"
-        >
-          Shutdown
+      <div className="flex gap-2">
+        <button onClick={() => arm("confirm-shutdown")}
+          className="flex-1 border border-[#f8514960] text-[#f85149] rounded py-1.5 text-[10px] font-semibold hover:bg-[#f851491a] hover:border-[#f85149] transition-all">
+          ⏻ Shutdown
         </button>
-        <button
-          onClick={() => arm("confirm-restart")}
-          className="flex-1 border border-[#f0883e] text-[#f0883e] rounded py-1 text-[11px] font-semibold hover:bg-[#f0883e1a] transition-colors"
-        >
-          Restart
+        <button onClick={() => arm("confirm-restart")}
+          className="flex-1 border border-[#f0883e60] text-[#f0883e] rounded py-1.5 text-[10px] font-semibold hover:bg-[#f0883e1a] hover:border-[#f0883e] transition-all">
+          ↺ Restart
         </button>
       </div>
     </div>
