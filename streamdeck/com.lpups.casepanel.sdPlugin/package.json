@@ -4,9 +4,10 @@
   "description": "LattePanda UPS Case Panel for Stream Deck",
   "main": "bin/plugin.js",
   "scripts": {
-    "build": "tsup src/plugin.ts --format cjs --outDir bin --no-splitting --minify",
-    "watch": "tsup src/plugin.ts --format cjs --outDir bin --no-splitting --watch",
-    "dev":   "tsup src/plugin.ts --format cjs --outDir bin --no-splitting --watch"
+    "prebuild": "node scripts/generate-icons.js",
+    "build":    "tsup src/plugin.ts --format cjs --outDir bin --no-splitting --minify",
+    "watch":    "tsup src/plugin.ts --format cjs --outDir bin --no-splitting --watch",
+    "dev":      "tsup src/plugin.ts --format cjs --outDir bin --no-splitting --watch"
   },
   "dependencies": {
     "@elgato/streamdeck": "0.6.1",

@@ -19,23 +19,33 @@ export class UpsEvents extends SingletonAction {
   private lastEvent = "";
   private flashTimer?: NodeJS.Timeout;
 
-  private dataHandler  = () => this.renderAll(false);
-  private eventHandler = (evt: string) => { this.lastEvent = evt; this.renderAll(true); };
+  private dataHandler       = () => this.renderAll(false);
+  private eventHandler      = (evt: string) => { this.lastEvent = evt; this.renderAll(true); };
+  private connectHandler    = () => this.renderAll(false);
+  private disconnectHandler = () => this.renderAll(false);
 
   override async onWillAppear(ev: WillAppearEvent): Promise<void> {
     this.active.add(ev.action);
     const d = serialReader.getData();
     if (d.lastEvent) this.lastEvent = d.lastEvent;
     await this.renderTo(ev.action, false);
-    serialReader.on("data",  this.dataHandler);
-    serialReader.on("event", this.eventHandler);
+    serialReader.off("data",       this.dataHandler);
+    serialReader.off("event",      this.eventHandler);
+    serialReader.off("connect",    this.connectHandler);
+    serialReader.off("disconnect", this.disconnectHandler);
+    serialReader.on("data",        this.dataHandler);
+    serialReader.on("event",       this.eventHandler);
+    serialReader.on("connect",     this.connectHandler);
+    serialReader.on("disconnect",  this.disconnectHandler);
   }
 
   override async onWillDisappear(ev: WillDisappearEvent): Promise<void> {
     this.active.delete(ev.action);
     if (this.active.size === 0) {
-      serialReader.off("data",  this.dataHandler);
-      serialReader.off("event", this.eventHandler);
+      serialReader.off("data",       this.dataHandler);
+      serialReader.off("event",      this.eventHandler);
+      serialReader.off("connect",    this.connectHandler);
+      serialReader.off("disconnect", this.disconnectHandler);
     }
   }
 
