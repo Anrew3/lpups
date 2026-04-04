@@ -7,7 +7,7 @@ module.exports = {
         brand: "#00c6ff",
       },
       fontFamily: {
-        mono: ["'JetBrains Mono'", "Consolas", "monospace"],
+        mono: ["'Cascadia Code'", "'Cascadia Mono'", "Consolas", "monospace"],
       },
     },
   },

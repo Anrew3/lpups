@@ -1,18 +1,28 @@
 /**
  * main.ts — Electron main process
+ *
+ * Security posture:
+ *  - contextIsolation: true, nodeIntegration: false (renderer has no Node access)
+ *  - CSP blocks all external network requests from the renderer
+ *  - Navigation and new-window creation are blocked
+ *  - Permission requests (camera, mic, etc.) are all denied
+ *  - Only localhost WebSocket traffic is permitted
  */
 
-import { app, BrowserWindow, ipcMain, Tray } from "electron";
+import { app, BrowserWindow, ipcMain, Tray, session } from "electron";
 import * as path from "path";
 import * as fs from "fs";
 import { exec, spawn } from "child_process";
 import * as readline from "readline";
-import { SerialReader } from "./serial";
+import { SerialReader }  from "./serial";
 import { WSBroadcaster } from "./ws-server";
-import { setupTray } from "./tray";
+import { setupTray }     from "./tray";
 import type { DiagCheck, DiagResult } from "./types";
 
-// Scripts live adjacent to the ASAR in packaged builds, in project root during dev
+// Disable hardware acceleration — we're a system panel, not a game
+app.disableHardwareAcceleration();
+
+// Scripts: adjacent to ASAR in packaged builds, project root in dev
 const SCRIPTS_DIR = app.isPackaged
   ? path.join(process.resourcesPath, "scripts")
   : path.join(app.getAppPath(), "scripts");
@@ -21,9 +31,41 @@ const IS_DEV = process.env.NODE_ENV === "development";
 
 const serial      = new SerialReader(SCRIPTS_DIR);
 const broadcaster = new WSBroadcaster();
-let   mainWin: BrowserWindow | null = null;
-let   tray:    Tray | null          = null;
-let   isQuitting = false;
+let   mainWin:    BrowserWindow | null = null;
+let   tray:       Tray | null          = null;
+let   isQuitting  = false;
+
+// ── Content Security Policy ───────────────────────────────────────────────────
+// Applied before any window is created. Blocks ALL external network requests.
+// Only allows: local file resources, inline styles (Tailwind), data URIs,
+// and localhost WebSocket (ws-server on :8766).
+function applyCSP(): void {
+  session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+    callback({
+      responseHeaders: {
+        ...details.responseHeaders,
+        "Content-Security-Policy": [
+          [
+            "default-src 'self'",
+            "script-src 'self'",
+            "style-src 'self' 'unsafe-inline'",   // Tailwind uses inline styles
+            "img-src 'self' data:",                // data: for SVG data URIs
+            "font-src 'self'",                     // no Google Fonts
+            "connect-src 'self' ws://localhost:8766", // only local WebSocket
+            "object-src 'none'",
+            "base-uri 'self'",
+            "form-action 'none'",
+          ].join("; "),
+        ],
+      },
+    });
+  });
+
+  // Deny all permission requests (camera, mic, notifications, etc.)
+  session.defaultSession.setPermissionRequestHandler((_wc, _perm, callback) => {
+    callback(false);
+  });
+}
 
 // ── Window ────────────────────────────────────────────────────────────────────
 function createWindow(): void {
@@ -36,15 +78,35 @@ function createWindow(): void {
     frame:           IS_DEV,
     autoHideMenuBar: true,
     backgroundColor: "#0d1117",
-    show:            false,   // show after ready-to-show to prevent flash
+    show:            false,
     webPreferences: {
-      preload:          path.join(__dirname, "..", "preload", "preload.js"),
-      contextIsolation: true,
-      nodeIntegration:  false,
+      preload:                    path.join(__dirname, "..", "preload", "preload.js"),
+      contextIsolation:           true,
+      nodeIntegration:            false,
+      webSecurity:                true,
+      allowRunningInsecureContent: false,
+      experimentalFeatures:       false,
     },
   });
 
-  // Show only when fully rendered — prevents white flash on startup
+  // Block ALL external navigation
+  mainWin.webContents.on("will-navigate", (event, url) => {
+    const allowed = IS_DEV
+      ? ["http://localhost:5173", "file://"]
+      : ["file://"];
+    const ok = allowed.some((prefix) => url.startsWith(prefix));
+    if (!ok) {
+      event.preventDefault();
+      console.warn("[security] Blocked navigation to:", url);
+    }
+  });
+
+  // Block new windows entirely
+  mainWin.webContents.setWindowOpenHandler(({ url }) => {
+    console.warn("[security] Blocked window open:", url);
+    return { action: "deny" };
+  });
+
   mainWin.once("ready-to-show", () => mainWin?.show());
 
   if (IS_DEV) {
@@ -72,16 +134,16 @@ function forwardSerial(): void {
 }
 
 // ── IPC handlers ──────────────────────────────────────────────────────────────
-ipcMain.handle("ups:getState",     ()                    => serial.getState());
-ipcMain.handle("net:get",          ()                    => runPS("status"));
-ipcMain.handle("net:set",          (_ev, mode: string)   => runPS(mode));
+ipcMain.handle("ups:getState",    ()                  => serial.getState());
+ipcMain.handle("net:get",         ()                  => runPS("status"));
+ipcMain.handle("net:set", (_ev, mode: string)         => runPS(mode));
 ipcMain.on("tray:show",  ()  => { mainWin?.show(); mainWin?.focus(); });
 ipcMain.on("tray:hide",  ()  => mainWin?.hide());
 
 function runPS(mode: string): Promise<string> {
   return new Promise((resolve) => {
     const ps = spawn("powershell.exe", [
-      "-NoProfile", "-ExecutionPolicy", "Bypass",
+      "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
       "-File", path.join(SCRIPTS_DIR, "network.ps1"),
       "-Mode", mode,
     ], { windowsHide: true });
@@ -111,7 +173,7 @@ ipcMain.on("diag:run", () => {
   let pass = 0, warn = 0, fail = 0;
 
   const ps = spawn("powershell.exe", [
-    "-NoProfile", "-ExecutionPolicy", "Bypass",
+    "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
     "-File", path.join(SCRIPTS_DIR, "diagnostics-stream.ps1"),
     "-StateFile", stateFile,
     "-OutFile",   outFile,
@@ -144,6 +206,7 @@ ipcMain.on("sys:restart",  () => exec(`shutdown /r /t 10 /c "LPUPS: user restart
 
 // ── App lifecycle ─────────────────────────────────────────────────────────────
 app.whenReady().then(() => {
+  applyCSP();
   serial.start();
   broadcaster.start(serial);
   forwardSerial();
@@ -154,6 +217,5 @@ app.whenReady().then(() => {
 app.on("before-quit", () => { isQuitting = true; });
 
 app.on("window-all-closed", () => {
-  // Do NOT quit — we live in the tray.
-  // Only quit when the user explicitly chooses Quit from the tray menu.
+  // Stay alive in the tray — only Quit menu item exits the app
 });

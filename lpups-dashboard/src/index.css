@@ -1,8 +1,11 @@
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;600;700&display=swap');
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* System monospace stack - no external network requests */
+:root {
+  --font-mono: 'Cascadia Code', 'Cascadia Mono', 'Consolas', 'JetBrains Mono', monospace;
+}
 
 *, *::before, *::after { box-sizing: border-box; }
 
@@ -11,13 +14,13 @@ html, body, #root {
   margin: 0; padding: 0;
   background: #0d1117;
   color: #e6edf3;
-  font-family: 'JetBrains Mono', Consolas, monospace;
+  font-family: var(--font-mono);
   overflow: hidden;
   user-select: none;
   -webkit-user-select: none;
 }
 
-/* ── Scroll ──────────────────────────────────────────────────────────────── */
+/* Scroll */
 .panel-scroll {
   overflow-y: auto;
   scrollbar-width: thin;
@@ -27,20 +30,20 @@ html, body, #root {
 .panel-scroll::-webkit-scrollbar-track { background: transparent; }
 .panel-scroll::-webkit-scrollbar-thumb { background: #30363d; border-radius: 2px; }
 
-/* ── SVG gauge arc ───────────────────────────────────────────────────────── */
+/* SVG gauge arc */
 .gauge-arc {
   transition: stroke-dashoffset 0.7s cubic-bezier(0.4, 0, 0.2, 1),
               stroke 0.4s ease;
 }
 
-/* ── Charging bolt pulse ─────────────────────────────────────────────────── */
+/* Charging bolt pulse */
 @keyframes bolt-pulse {
   0%, 100% { opacity: 1;   transform: scale(1);    }
   50%       { opacity: 0.4; transform: scale(0.92); }
 }
 .bolt-pulse { animation: bolt-pulse 1.4s ease-in-out infinite; }
 
-/* ── Connection status ping ──────────────────────────────────────────────── */
+/* Connection status ping */
 @keyframes ping {
   0%   { transform: scale(1);   opacity: 0.9; }
   70%  { transform: scale(2.4); opacity: 0;   }
@@ -48,14 +51,7 @@ html, body, #root {
 }
 .status-ping { animation: ping 1.8s cubic-bezier(0, 0, 0.2, 1) infinite; }
 
-/* ── Value change flash ──────────────────────────────────────────────────── */
-@keyframes value-flash {
-  0%   { color: #ffffff; }
-  100% { color: inherit; }
-}
-.value-update { animation: value-flash 0.4s ease-out; }
-
-/* ── Shimmer for no-data state ───────────────────────────────────────────── */
+/* Shimmer for no-data */
 @keyframes shimmer {
   0%   { opacity: 0.3; }
   50%  { opacity: 0.6; }
@@ -63,14 +59,17 @@ html, body, #root {
 }
 .shimmer { animation: shimmer 2s ease-in-out infinite; }
 
-/* ── Slide-in ────────────────────────────────────────────────────────────── */
+/* Slide-in */
 @keyframes slide-in {
   from { opacity: 0; transform: translateY(6px); }
   to   { opacity: 1; transform: translateY(0);   }
 }
 .slide-in { animation: slide-in 0.25s ease-out; }
 
-/* ── Progress bar ────────────────────────────────────────────────────────── */
+/* Chart */
+.chart-area { animation: slide-in 0.3s ease-out; }
+
+/* Progress bar */
 .bar-track { background: #21262d; border-radius: 3px; overflow: hidden; }
 .bar-fill  {
   height: 100%; border-radius: 3px;
