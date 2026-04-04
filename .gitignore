@@ -1,0 +1,26 @@
+# Node
+node_modules/
+npm-debug.log*
+
+# Build outputs
+bin/
+out/
+dist/
+lpups-dashboard/out/
+
+# Electron
+lpups-dashboard/.vite/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+*.suo
+*.user
+
+# Arduino build cache
+*.elf
+*.hex
+build/

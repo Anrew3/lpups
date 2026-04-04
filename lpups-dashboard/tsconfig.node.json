@@ -1,0 +1,15 @@
+{
+  "compilerOptions": {
+    "composite":              true,
+    "module":                 "CommonJS",
+    "moduleResolution":       "Node",
+    "target":                 "ES2022",
+    "strict":                 true,
+    "skipLibCheck":           true,
+    "outDir":                 "out",
+    "rootDir":                "electron",
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata":  true
+  },
+  "include": ["electron/**/*.ts"]
+}

@@ -1,0 +1,50 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&display=swap');
+
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  background: #0d1117;
+  color: #e6edf3;
+  font-family: 'JetBrains Mono', Consolas, monospace;
+  overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* Scrollable areas inside panels */
+.panel-scroll {
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #30363d #0d1117;
+}
+.panel-scroll::-webkit-scrollbar { width: 4px; }
+.panel-scroll::-webkit-scrollbar-track { background: #0d1117; }
+.panel-scroll::-webkit-scrollbar-thumb { background: #30363d; border-radius: 2px; }
+
+/* Glow effects */
+.glow-green  { text-shadow: 0 0 8px #3fb950; }
+.glow-yellow { text-shadow: 0 0 8px #d29922; }
+.glow-red    { text-shadow: 0 0 8px #f85149; }
+.glow-blue   { text-shadow: 0 0 8px #58a6ff; }
+
+/* Progress bar */
+.bar-track {
+  background: #21262d;
+  border-radius: 3px;
+  overflow: hidden;
+}
+.bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.4s ease;
+}

@@ -1,0 +1,20 @@
+{
+  "name": "com.lpups.casepanel",
+  "version": "1.0.0",
+  "description": "LattePanda UPS Case Panel for Stream Deck",
+  "main": "bin/plugin.js",
+  "scripts": {
+    "build": "tsup src/plugin.ts --format cjs --outDir bin --no-splitting --minify",
+    "watch": "tsup src/plugin.ts --format cjs --outDir bin --no-splitting --watch",
+    "dev":   "tsup src/plugin.ts --format cjs --outDir bin --no-splitting --watch"
+  },
+  "dependencies": {
+    "@elgato/streamdeck": "^0.7.0",
+    "ws": "^8.17.1"
+  },
+  "devDependencies": {
+    "@types/ws": "^8.5.10",
+    "tsup": "^8.0.0",
+    "typescript": "^5.0.0"
+  }
+}

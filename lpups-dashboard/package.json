@@ -1,0 +1,29 @@
+{
+  "name": "lpups-dashboard",
+  "version": "1.0.0",
+  "description": "LPUPS Case Panel — 7\" Dashboard",
+  "main": "./out/main/index.js",
+  "scripts": {
+    "dev":   "electron-vite dev",
+    "build": "electron-vite build",
+    "start": "electron-vite preview"
+  },
+  "dependencies": {
+    "react":     "^18.3.1",
+    "react-dom": "^18.3.1",
+    "ws":        "^8.17.1"
+  },
+  "devDependencies": {
+    "@types/node":       "^20.14.0",
+    "@types/react":      "^18.3.3",
+    "@types/react-dom":  "^18.3.0",
+    "@types/ws":         "^8.5.10",
+    "@vitejs/plugin-react": "^4.3.1",
+    "autoprefixer":      "^10.4.19",
+    "electron":          "^31.2.1",
+    "electron-vite":     "^2.3.0",
+    "postcss":           "^8.4.39",
+    "tailwindcss":       "^3.4.6",
+    "typescript":        "^5.5.3"
+  }
+}

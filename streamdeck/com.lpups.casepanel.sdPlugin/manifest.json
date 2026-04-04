@@ -1,0 +1,66 @@
+{
+  "$schema": "https://schemas.elgato.com/streamdeck/plugins/manifest.json",
+  "Name": "LPUPS Case Panel",
+  "Version": "1.0.0",
+  "Author": "LPUPS",
+  "Description": "LattePanda UPS monitoring and control — battery status, power draw, network toggle, and system diagnostics.",
+  "Category": "LPUPS",
+  "CategoryIcon": "imgs/category",
+  "CodePath": "bin/plugin.js",
+  "Icon": "imgs/plugin",
+  "UUID": "com.lpups.casepanel",
+  "SDKVersion": 2,
+  "Software": { "MinimumVersion": "6.4" },
+  "OS": [{ "Platform": "windows", "MinimumVersion": "10" }],
+  "NodeVersion": "20",
+  "Actions": [
+    {
+      "Name": "Battery Status",
+      "UUID": "com.lpups.casepanel.battery",
+      "Icon": "imgs/act-battery",
+      "Tooltip": "B1 (18650 UPS) and B2 (12V LiON pack) capacity, state, and charging indicator.",
+      "Controllers": ["Keypad"],
+      "States": [{ "Image": "imgs/act-battery" }]
+    },
+    {
+      "Name": "Power and Runtime",
+      "UUID": "com.lpups.casepanel.power",
+      "Icon": "imgs/act-power",
+      "Tooltip": "Live power draw in Watts and estimated minutes remaining on the 12V pack.",
+      "Controllers": ["Keypad"],
+      "States": [{ "Image": "imgs/act-power" }]
+    },
+    {
+      "Name": "Network Mode",
+      "UUID": "com.lpups.casepanel.network",
+      "Icon": "imgs/act-network",
+      "Tooltip": "Toggle between WiFi-first and Cellular-first priority. Both adapters stay active.",
+      "Controllers": ["Keypad"],
+      "States": [{ "Image": "imgs/act-network" }]
+    },
+    {
+      "Name": "UPS Events",
+      "UUID": "com.lpups.casepanel.events",
+      "Icon": "imgs/act-events",
+      "Tooltip": "Last event from the Arduino UPS (charger connected/disconnected, kick-in, shutdown trigger).",
+      "Controllers": ["Keypad"],
+      "States": [{ "Image": "imgs/act-events" }]
+    },
+    {
+      "Name": "System Control",
+      "UUID": "com.lpups.casepanel.system",
+      "Icon": "imgs/act-system",
+      "Tooltip": "Tap to initiate shutdown (with confirm). Hold 3s to restart.",
+      "Controllers": ["Keypad"],
+      "States": [{ "Image": "imgs/act-system" }]
+    },
+    {
+      "Name": "Get Help",
+      "UUID": "com.lpups.casepanel.diagnostics",
+      "Icon": "imgs/act-diag",
+      "Tooltip": "Run 15 system sanity checks. Shows pass/warn/fail summary. Press again to open detail report.",
+      "Controllers": ["Keypad"],
+      "States": [{ "Image": "imgs/act-diag" }]
+    }
+  ]
+}
