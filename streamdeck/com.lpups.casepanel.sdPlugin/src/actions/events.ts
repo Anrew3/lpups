@@ -1,9 +1,3 @@
-/**
- * events.ts — Key 4
- * Last Arduino event line (!!!  or  >>> alerts).
- * Flashes orange for 1.5 s when a new event arrives.
- */
-
 import { action, SingletonAction, WillAppearEvent, WillDisappearEvent, KeyDownEvent } from "@elgato/streamdeck";
 import { serialReader } from "../serial-reader";
 import { makeButton, C } from "../render";
@@ -14,7 +8,6 @@ export class UpsEvents extends SingletonAction {
   private active    = new Set<any>();
   private lastEvent = "";
   private flashTimer?: NodeJS.Timeout;
-
   private dataHandler       = () => this.renderAll(false);
   private eventHandler      = (evt: string) => { this.lastEvent = evt; this.renderAll(true); };
   private connectHandler    = () => this.renderAll(false);
@@ -25,24 +18,14 @@ export class UpsEvents extends SingletonAction {
     const d = serialReader.getData();
     if (d.lastEvent) this.lastEvent = d.lastEvent;
     await this.renderTo(ev.action, false);
-    serialReader.off("data",       this.dataHandler);
-    serialReader.off("event",      this.eventHandler);
-    serialReader.off("connect",    this.connectHandler);
-    serialReader.off("disconnect", this.disconnectHandler);
-    serialReader.on("data",        this.dataHandler);
-    serialReader.on("event",       this.eventHandler);
-    serialReader.on("connect",     this.connectHandler);
-    serialReader.on("disconnect",  this.disconnectHandler);
+    serialReader.off("data", this.dataHandler).off("event", this.eventHandler).off("connect", this.connectHandler).off("disconnect", this.disconnectHandler);
+    serialReader.on("data",  this.dataHandler).on("event",  this.eventHandler).on("connect",  this.connectHandler).on("disconnect",  this.disconnectHandler);
   }
 
   override async onWillDisappear(ev: WillDisappearEvent): Promise<void> {
     this.active.delete(ev.action);
-    if (this.active.size === 0) {
-      serialReader.off("data",       this.dataHandler);
-      serialReader.off("event",      this.eventHandler);
-      serialReader.off("connect",    this.connectHandler);
-      serialReader.off("disconnect", this.disconnectHandler);
-    }
+    if (this.active.size === 0)
+      serialReader.off("data", this.dataHandler).off("event", this.eventHandler).off("connect", this.connectHandler).off("disconnect", this.disconnectHandler);
   }
 
   override onKeyDown(_ev: KeyDownEvent): void { /* display-only */ }
@@ -57,33 +40,29 @@ export class UpsEvents extends SingletonAction {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private async renderTo(a: any, flash: boolean): Promise<void> {
-    const d  = serialReader.getData();
-    const bg = flash        ? C.ORANGE
-             : !d.connected ? C.GRAY
-             : C.TEAL;
-
-    const raw   = this.lastEvent || (d.connected ? "(no events)" : "NO SERIAL");
-    const lines = this.wrapEvent(raw);
+    const d   = serialReader.getData();
+    const bg  = flash ? C.ORANGE : !d.connected ? C.GRAY : C.TEAL;
+    const raw = this.lastEvent || (d.connected ? "(no events)" : "NO SERIAL");
+    const [l0, l1, l2] = this.wrapEvent(raw);
 
     await a.setTitle("");
-    await a.setImage(makeButton(bg, [
+    await a.setImage(await makeButton(bg, [
       { text: "EVENTS", y: 12, size: 10, color: "#cccccc", bold: false },
-      { text: lines[0], y: 30, size: 12 },
-      { text: lines[1], y: 46, size: 11, color: "#dddddd" },
-      { text: lines[2], y: 61, size: 10, color: "#bbbbbb", bold: false },
+      { text: l0,       y: 30, size: 12 },
+      { text: l1,       y: 46, size: 11, color: "#dddddd" },
+      { text: l2,       y: 61, size: 10, color: "#bbbbbb", bold: false },
     ]));
   }
 
   private wrapEvent(s: string): [string, string, string] {
-    const clean = s.replace(/^[>!]{3}\s*/, "");
-    const words = clean.split(" ");
-    const chunks: string[] = ["", "", ""];
-    let idx = 0;
+    const words = s.replace(/^[>!]{3}\s*/, "").split(" ");
+    const c: string[] = ["", "", ""];
+    let i = 0;
     for (const w of words) {
-      if (idx < 2 && (chunks[idx].length + w.length) > 10) idx++;
-      if (idx > 2) break;
-      chunks[idx] += (chunks[idx] ? " " : "") + w;
+      if (i < 2 && c[i].length + w.length > 10) i++;
+      if (i > 2) break;
+      c[i] += (c[i] ? " " : "") + w;
     }
-    return [chunks[0] ?? "", chunks[1] ?? "", chunks[2] ?? ""];
+    return [c[0], c[1], c[2]];
   }
 }

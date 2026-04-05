@@ -1,10 +1,3 @@
-/**
- * system.ts — Key 5
- * TAP  → two-step shutdown confirm (4 s cancel window).
- * HOLD (>=2.5 s) → immediate restart (10 s).
- * Idle shows system uptime, updated every 60 s.
- */
-
 import { action, SingletonAction, WillAppearEvent, WillDisappearEvent, KeyDownEvent, KeyUpEvent } from "@elgato/streamdeck";
 import { exec } from "child_process";
 import { makeButton, C } from "../render";
@@ -36,9 +29,7 @@ export class SystemControl extends SingletonAction {
     if (this.active.size === 0 && this.uptimeTimer) clearInterval(this.uptimeTimer);
   }
 
-  override onKeyDown(_ev: KeyDownEvent): void {
-    this.pressStart = Date.now();
-  }
+  override onKeyDown(_ev: KeyDownEvent): void { this.pressStart = Date.now(); }
 
   override async onKeyUp(_ev: KeyUpEvent): Promise<void> {
     const held = Date.now() - this.pressStart;
@@ -47,10 +38,7 @@ export class SystemControl extends SingletonAction {
     } else if (this.state === "IDLE") {
       this.state = "CONFIRM";
       await this.renderAll();
-      this.confirmTimer = setTimeout(async () => {
-        this.state = "IDLE";
-        await this.renderAll();
-      }, 4000);
+      this.confirmTimer = setTimeout(async () => { this.state = "IDLE"; await this.renderAll(); }, 4000);
     } else if (this.state === "CONFIRM") {
       if (this.confirmTimer) clearTimeout(this.confirmTimer);
       await this.execute("shutdown");
@@ -60,62 +48,52 @@ export class SystemControl extends SingletonAction {
   private async execute(cmd: "shutdown" | "restart"): Promise<void> {
     this.state = "EXECUTING";
     await this.renderAll();
-    if (cmd === "shutdown") {
-      exec(`shutdown /s /t 30 /c "LPUPS panel shutdown"`);
-    } else {
-      exec(`shutdown /r /t 10 /c "LPUPS panel restart"`);
-    }
+    exec(cmd === "shutdown"
+      ? `shutdown /s /t 30 /c "LPUPS panel shutdown"`
+      : `shutdown /r /t 10 /c "LPUPS panel restart"`);
   }
 
   private async fetchUptime(): Promise<void> {
     return new Promise(resolve => {
-      exec(
-        `powershell -NoProfile -Command "(Get-Date) - (gcim Win32_OperatingSystem).LastBootUpTime | Select-Object -ExpandProperty TotalSeconds"`,
+      exec(`powershell -NoProfile -Command "(Get-Date)-(gcim Win32_OperatingSystem).LastBootUpTime | Select-Object -ExpandProperty TotalSeconds"`,
         (err, stdout) => {
           if (!err) {
             const secs = parseFloat(stdout.trim());
             if (!isNaN(secs)) {
-              const h = Math.floor(secs / 3600);
-              const m = Math.floor((secs % 3600) / 60);
+              const h = Math.floor(secs / 3600), m = Math.floor((secs % 3600) / 60);
               this.uptimeStr = h > 0 ? `${h}h ${m}m` : `${m}m`;
             }
           }
           resolve();
-        }
-      );
+        });
     });
   }
 
-  private async renderAll(): Promise<void> {
-    for (const a of this.active) await this.renderTo(a);
-  }
+  private async renderAll(): Promise<void> { for (const a of this.active) await this.renderTo(a); }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private async renderTo(a: any): Promise<void> {
     if (this.state === "EXECUTING") {
-      await a.setImage(makeButton(C.RED, [
-        { text: "SYSTEM",     y: 18, size: 11, color: "#cccccc", bold: false },
-        { text: "SENDING",    y: 38, size: 14 },
-        { text: "COMMAND...", y: 55, size: 11 },
+      return void a.setImage(await makeButton(C.RED, [
+        { text: "SYSTEM",      y: 18, size: 11, color: "#cccccc", bold: false },
+        { text: "SENDING",     y: 38, size: 14 },
+        { text: "COMMAND...",  y: 55, size: 11 },
       ]));
-      return;
     }
     if (this.state === "CONFIRM") {
-      await a.setImage(makeButton(C.ORANGE, [
+      return void a.setImage(await makeButton(C.ORANGE, [
         { text: "SHUTDOWN?",   y: 18, size: 14 },
         { text: "TAP TO",      y: 38, size: 13 },
         { text: "CONFIRM",     y: 55, size: 14 },
         { text: "(4s cancel)", y: 68, size: 9, color: "#dddddd", bold: false },
       ]));
-      return;
     }
-    // IDLE
-    await a.setImage(makeButton(C.DKGRAY, [
-      { text: "SYSTEM",   y: 13, size: 10, color: "#999999", bold: false },
-      { text: this.uptimeStr || "...", y: 30, size: 15 },
-      { text: "uptime",   y: 42, size: 9,  color: "#888888", bold: false },
-      { text: "TAP=OFF",  y: 57, size: 11, color: "#ffaaaa" },
-      { text: "HOLD=RST", y: 69, size: 10, color: "#aaaaff", bold: false },
+    await a.setImage(await makeButton(C.DKGRAY, [
+      { text: "SYSTEM",                      y: 13, size: 10, color: "#999999", bold: false },
+      { text: this.uptimeStr || "...",        y: 30, size: 15 },
+      { text: "uptime",                      y: 42, size: 9,  color: "#888888", bold: false },
+      { text: "TAP=OFF",                     y: 57, size: 11, color: "#ffaaaa" },
+      { text: "HOLD=RST",                    y: 69, size: 10, color: "#aaaaff", bold: false },
     ]));
   }
 }
