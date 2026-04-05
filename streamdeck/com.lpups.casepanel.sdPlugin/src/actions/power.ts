@@ -1,6 +1,6 @@
 /**
  * power.ts — Key 2
- * Live power draw, 5-min avg current, runtime remaining.
+ * Live power draw (W), 5-min average current (mA), runtime remaining.
  */
 
 import { action, SingletonAction, WillAppearEvent, WillDisappearEvent, KeyDownEvent } from "@elgato/streamdeck";
@@ -28,7 +28,7 @@ export class PowerRuntime extends SingletonAction {
     const d = serialReader.getData();
     await (d.connected
       ? this.renderTo(ev.action, d)
-      : ev.action.setImage(await noDataButton("POWER")));
+      : ev.action.setImage(noDataButton("POWER")));
   }
 
   override async onWillDisappear(ev: WillDisappearEvent): Promise<void> {
@@ -40,22 +40,21 @@ export class PowerRuntime extends SingletonAction {
     }
   }
 
-  // No-op: prevents Stream Deck showing an alert icon when key is pressed
-  override onKeyDown(_ev: KeyDownEvent): void { /* display-only key */ }
+  override onKeyDown(_ev: KeyDownEvent): void { /* display-only */ }
 
   private async renderAll(d: UPSData): Promise<void> {
     for (const a of this.active) await this.renderTo(a, d);
   }
 
   private async showNoData(): Promise<void> {
-    const img = await noDataButton("POWER");
+    const img = noDataButton("POWER");
     for (const a of this.active) await a.setImage(img);
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private async renderTo(a: any, d: UPSData): Promise<void> {
     const { b2 } = d;
-    const bg = !b2.present ? C.GRAY
+    const bg = !b2.present      ? C.GRAY
              : b2.state === "CHARGING" ? C.TEAL
              : C.BLUE;
 
@@ -66,12 +65,12 @@ export class PowerRuntime extends SingletonAction {
       : "--";
 
     await a.setTitle("");
-    await a.setImage(await makeButton(bg, [
-      { text: "POWER",                                         y: 12, size: 10, color: "#cccccc", bold: false },
-      { text: b2.present ? `${b2.draw} W`       : "--",        y: 31, size: 18 },
-      { text: b2.present ? `~${b2.avgCurrent} mA` : "-- mA",  y: 47, size: 12, color: "#aaddff", bold: false },
-      { text: "RUNTIME",                                       y: 59, size: 9,  color: "#999999", bold: false },
-      { text: runtime,                                         y: 71, size: 13 },
+    await a.setImage(makeButton(bg, [
+      { text: "POWER",                                        y: 12, size: 10, color: "#cccccc", bold: false },
+      { text: b2.present ? `${b2.draw} W`      : "--",        y: 31, size: 18 },
+      { text: b2.present ? `~${b2.avgCurrent} mA` : "-- mA", y: 47, size: 12, color: "#aaddff", bold: false },
+      { text: "RUNTIME",                                      y: 59, size: 9,  color: "#999999", bold: false },
+      { text: runtime,                                        y: 71, size: 13 },
     ]));
   }
 }

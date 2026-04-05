@@ -1,7 +1,7 @@
 /**
  * events.ts — Key 4
- * Displays the most recent event line from the Arduino.
- * Background flashes orange briefly on each new event.
+ * Last Arduino event line (!!!  or  >>> alerts).
+ * Flashes orange for 1.5 s when a new event arrives.
  */
 
 import { action, SingletonAction, WillAppearEvent, WillDisappearEvent, KeyDownEvent } from "@elgato/streamdeck";
@@ -45,8 +45,7 @@ export class UpsEvents extends SingletonAction {
     }
   }
 
-  // No-op: prevents Stream Deck showing an alert icon when key is pressed
-  override onKeyDown(_ev: KeyDownEvent): void { /* display-only key */ }
+  override onKeyDown(_ev: KeyDownEvent): void { /* display-only */ }
 
   private async renderAll(flash: boolean): Promise<void> {
     for (const a of this.active) await this.renderTo(a, flash);
@@ -59,7 +58,7 @@ export class UpsEvents extends SingletonAction {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private async renderTo(a: any, flash: boolean): Promise<void> {
     const d  = serialReader.getData();
-    const bg = flash       ? C.ORANGE
+    const bg = flash        ? C.ORANGE
              : !d.connected ? C.GRAY
              : C.TEAL;
 
@@ -67,11 +66,11 @@ export class UpsEvents extends SingletonAction {
     const lines = this.wrapEvent(raw);
 
     await a.setTitle("");
-    await a.setImage(await makeButton(bg, [
-      { text: "EVENTS",  y: 12, size: 10, color: "#cccccc", bold: false },
-      { text: lines[0],  y: 30, size: 12 },
-      { text: lines[1],  y: 46, size: 11, color: "#dddddd" },
-      { text: lines[2],  y: 61, size: 10, color: "#bbbbbb", bold: false },
+    await a.setImage(makeButton(bg, [
+      { text: "EVENTS", y: 12, size: 10, color: "#cccccc", bold: false },
+      { text: lines[0], y: 30, size: 12 },
+      { text: lines[1], y: 46, size: 11, color: "#dddddd" },
+      { text: lines[2], y: 61, size: 10, color: "#bbbbbb", bold: false },
     ]));
   }
 

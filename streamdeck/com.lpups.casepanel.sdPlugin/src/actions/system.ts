@@ -1,8 +1,8 @@
 /**
  * system.ts — Key 5
  * TAP  → two-step shutdown confirm (4 s cancel window).
- * HOLD (≥ 2.5 s) → immediate restart.
- * Idle shows system uptime.
+ * HOLD (>=2.5 s) → immediate restart (10 s).
+ * Idle shows system uptime, updated every 60 s.
  */
 
 import { action, SingletonAction, WillAppearEvent, WillDisappearEvent, KeyDownEvent, KeyUpEvent } from "@elgato/streamdeck";
@@ -33,9 +33,7 @@ export class SystemControl extends SingletonAction {
 
   override async onWillDisappear(ev: WillDisappearEvent): Promise<void> {
     this.active.delete(ev.action);
-    if (this.active.size === 0 && this.uptimeTimer) {
-      clearInterval(this.uptimeTimer);
-    }
+    if (this.active.size === 0 && this.uptimeTimer) clearInterval(this.uptimeTimer);
   }
 
   override onKeyDown(_ev: KeyDownEvent): void {
@@ -44,7 +42,6 @@ export class SystemControl extends SingletonAction {
 
   override async onKeyUp(_ev: KeyUpEvent): Promise<void> {
     const held = Date.now() - this.pressStart;
-
     if (held >= 2500) {
       await this.execute("restart");
     } else if (this.state === "IDLE") {
@@ -64,9 +61,9 @@ export class SystemControl extends SingletonAction {
     this.state = "EXECUTING";
     await this.renderAll();
     if (cmd === "shutdown") {
-      exec(`shutdown /s /t 30 /c "UPS panel: user-initiated shutdown"`);
+      exec(`shutdown /s /t 30 /c "LPUPS panel shutdown"`);
     } else {
-      exec(`shutdown /r /t 10 /c "UPS panel: user-initiated restart"`);
+      exec(`shutdown /r /t 10 /c "LPUPS panel restart"`);
     }
   }
 
@@ -96,32 +93,29 @@ export class SystemControl extends SingletonAction {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private async renderTo(a: any): Promise<void> {
     if (this.state === "EXECUTING") {
-      await a.setImage(await makeButton(C.RED, [
-        { text: "SYSTEM",      y: 18, size: 11, color: "#cccccc", bold: false },
-        { text: "SENDING",     y: 38, size: 14 },
-        { text: "COMMAND...",  y: 55, size: 11 },
+      await a.setImage(makeButton(C.RED, [
+        { text: "SYSTEM",     y: 18, size: 11, color: "#cccccc", bold: false },
+        { text: "SENDING",    y: 38, size: 14 },
+        { text: "COMMAND...", y: 55, size: 11 },
       ]));
       return;
     }
-
     if (this.state === "CONFIRM") {
-      await a.setImage(await makeButton(C.ORANGE, [
-        { text: "SHUTDOWN?",    y: 18, size: 14 },
-        { text: "TAP TO",       y: 38, size: 13 },
-        { text: "CONFIRM",      y: 55, size: 14 },
-        { text: "(4s cancel)",  y: 68, size: 9, color: "#dddddd", bold: false },
+      await a.setImage(makeButton(C.ORANGE, [
+        { text: "SHUTDOWN?",   y: 18, size: 14 },
+        { text: "TAP TO",      y: 38, size: 13 },
+        { text: "CONFIRM",     y: 55, size: 14 },
+        { text: "(4s cancel)", y: 68, size: 9, color: "#dddddd", bold: false },
       ]));
       return;
     }
-
     // IDLE
-    const uptime = this.uptimeStr || "...";
-    await a.setImage(await makeButton(C.DKGRAY, [
-      { text: "SYSTEM",    y: 13, size: 10, color: "#999999", bold: false },
-      { text: uptime,      y: 30, size: 15 },
-      { text: "uptime",    y: 42, size: 9,  color: "#888888", bold: false },
-      { text: "TAP=OFF",   y: 57, size: 11, color: "#ffaaaa" },
-      { text: "HOLD=RST",  y: 69, size: 10, color: "#aaaaff", bold: false },
+    await a.setImage(makeButton(C.DKGRAY, [
+      { text: "SYSTEM",   y: 13, size: 10, color: "#999999", bold: false },
+      { text: this.uptimeStr || "...", y: 30, size: 15 },
+      { text: "uptime",   y: 42, size: 9,  color: "#888888", bold: false },
+      { text: "TAP=OFF",  y: 57, size: 11, color: "#ffaaaa" },
+      { text: "HOLD=RST", y: 69, size: 10, color: "#aaaaff", bold: false },
     ]));
   }
 }

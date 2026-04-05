@@ -6,5 +6,4 @@ export default defineConfig({
   outDir:    "bin",
   splitting: false,
   minify:    true,
-  external:  ["@napi-rs/canvas"],
 });

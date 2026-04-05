@@ -10,8 +10,7 @@
     "dev":      "tsup --watch"
   },
   "dependencies": {
-    "@elgato/streamdeck": "1.4.1",
-    "@napi-rs/canvas":    "^0.1.44"
+    "@elgato/streamdeck": "1.4.1"
   },
   "devDependencies": {
     "@swc/core":  "^1.5.0",

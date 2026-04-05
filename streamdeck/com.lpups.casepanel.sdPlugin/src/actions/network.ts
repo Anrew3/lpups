@@ -1,6 +1,6 @@
 /**
  * network.ts — Key 3
- * Toggles between WiFi-first and Cellular-first priority.
+ * Toggle between WiFi-first and Cellular-first routing priority.
  */
 
 import { action, SingletonAction, WillAppearEvent, WillDisappearEvent, KeyDownEvent } from "@elgato/streamdeck";
@@ -47,13 +47,13 @@ export class NetworkToggle extends SingletonAction {
   }
 
   private async setMode(mode: NetMode): Promise<void> {
-    const switching = await makeButton(C.GRAY, [
-      { text: "NETWORK",   y: 22, size: 10, color: "#cccccc", bold: false },
-      { text: "SWITCHING", y: 42, size: 13 },
-      { text: "...",       y: 58, size: 13 },
-    ]);
-    for (const a of this.active) await a.setImage(switching);
-
+    for (const a of this.active) {
+      await a.setImage(makeButton(C.GRAY, [
+        { text: "NETWORK",   y: 22, size: 10, color: "#cccccc", bold: false },
+        { text: "SWITCHING", y: 42, size: 13 },
+        { text: "...",       y: 58, size: 13 },
+      ]));
+    }
     try {
       await execAsync(
         `powershell.exe -NonInteractive -NoProfile -ExecutionPolicy Bypass -File "${SCRIPT}" -Mode ${mode.toLowerCase()}`
@@ -75,11 +75,11 @@ export class NetworkToggle extends SingletonAction {
     const isWifi = this.mode === "WIFI";
     const bg     = isCell ? C.PURPLE : isWifi ? C.TEAL : C.GRAY;
     const icon   = isCell ? "CELL"   : isWifi ? "WIFI" : "?";
-    const sub    = isCell ? "WiFi standby" : isWifi ? "Cell standby" : "unknown";
-    const hint   = isCell ? "tap->WIFI"    : "tap->CELL";
+    const sub    = isCell ? "WiFi standby"  : isWifi ? "Cell standby" : "unknown";
+    const hint   = isCell ? "tap->WIFI"     : "tap->CELL";
 
     await a.setTitle("");
-    await a.setImage(await makeButton(bg, [
+    await a.setImage(makeButton(bg, [
       { text: "NETWORK", y: 14, size: 10, color: "#cccccc", bold: false },
       { text: icon,      y: 35, size: 19 },
       { text: sub,       y: 51, size: 10, color: "#aaaaaa", bold: false },

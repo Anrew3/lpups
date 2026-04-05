@@ -1,15 +1,19 @@
 /**
  * render.ts
  *
- * Produces base64 PNG data URIs for Stream Deck keys using @napi-rs/canvas
- * (N-API stable ABI — works with any Node.js version, including the one
- * bundled inside Stream Deck software).
- *
- * Key size: 72 × 72 px.
- * All functions are async because canvas.encode() is async.
+ * SVG-based 72×72 button image generator.
+ * Returns base64 data URIs accepted by the Stream Deck SDK setImage() call.
+ * Stream Deck software (Electron/Chromium) renders SVG natively —
+ * no canvas, no native modules required.
  */
 
-import { createCanvas } from "@napi-rs/canvas";
+function esc(s: string | number): string {
+  return String(s)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
 
 export interface Line {
   text:   string | number;
@@ -32,49 +36,26 @@ export const C = {
   DKGRAY: "#1a1a1a",
 } as const;
 
-/** Rounded-rectangle path helper. */
-function roundRect(
-  ctx: ReturnType<ReturnType<typeof createCanvas>["getContext"]>,
-  x: number, y: number, w: number, h: number, r: number
-): void {
-  ctx.beginPath();
-  ctx.moveTo(x + r, y);
-  ctx.lineTo(x + w - r, y);
-  ctx.arcTo(x + w, y,     x + w, y + r,     r);
-  ctx.lineTo(x + w, y + h - r);
-  ctx.arcTo(x + w, y + h, x + w - r, y + h, r);
-  ctx.lineTo(x + r, y + h);
-  ctx.arcTo(x,     y + h, x,     y + h - r, r);
-  ctx.lineTo(x,     y + r);
-  ctx.arcTo(x,     y,     x + r, y,         r);
-  ctx.closePath();
+/** Build a 72×72 SVG button and return a base64 data URI. */
+export function makeButton(bg: string, lines: Line[]): string {
+  const texts = lines.map(l => {
+    const w = l.bold !== false ? "bold" : "normal";
+    const c = l.color ?? "#ffffff";
+    const s = l.size  ?? 13;
+    return `<text x="36" y="${l.y}" text-anchor="middle" `
+      + `font-family="Arial,Helvetica,sans-serif" `
+      + `font-size="${s}" font-weight="${w}" fill="${c}">${esc(l.text)}</text>`;
+  }).join("");
+
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="72" height="72">`
+    + `<rect width="72" height="72" rx="6" fill="${bg}"/>`
+    + texts
+    + `</svg>`;
+
+  return `data:image/svg+xml;base64,${Buffer.from(svg).toString("base64")}`;
 }
 
-/** Build a 72×72 PNG button with a solid background and text lines. */
-export async function makeButton(bg: string, lines: Line[]): Promise<string> {
-  const canvas = createCanvas(72, 72);
-  const ctx    = canvas.getContext("2d");
-
-  // Background
-  ctx.fillStyle = bg;
-  roundRect(ctx, 0, 0, 72, 72, 6);
-  ctx.fill();
-
-  // Text lines
-  ctx.textAlign    = "center";
-  ctx.textBaseline = "alphabetic";
-  for (const l of lines) {
-    const weight = l.bold !== false ? "bold" : "normal";
-    ctx.font      = `${weight} ${l.size ?? 13}px Arial, sans-serif`;
-    ctx.fillStyle = l.color ?? "#ffffff";
-    ctx.fillText(String(l.text), 36, l.y);
-  }
-
-  const buf = await canvas.encode("png");
-  return `data:image/png;base64,${buf.toString("base64")}`;
-}
-
-/** Horizontal progress bar  ████░░░░ */
+/** Horizontal fill bar  ████░░░  */
 export function pctBar(pct: number, width = 7): string {
   const n = Math.round(Math.min(100, Math.max(0, pct)) / 100 * width);
   return "\u2588".repeat(n) + "\u2591".repeat(width - n);
@@ -88,8 +69,8 @@ export function battColor(pct: number): string {
   return C.RED;
 }
 
-/** Dim grey "no data" button. */
-export async function noDataButton(label: string): Promise<string> {
+/** Dim "no data" button shown before serial connects. */
+export function noDataButton(label: string): string {
   return makeButton(C.DKGRAY, [
     { text: label,     y: 28, size: 13 },
     { text: "NO DATA", y: 50, size: 11, color: "#ff8888" },

@@ -1,8 +1,8 @@
 /**
  * diagnostics.ts — Key 6
- * Tap → runs 15 system checks, shows pass/warn/fail summary.
- * Tap again → opens detail report in Notepad.
- * Hold 3 s  → re-runs checks.
+ * Tap     → run 15 system checks, show pass/warn/fail summary.
+ * Tap again → open detail report in Notepad.
+ * Hold 3 s  → re-run checks.
  */
 
 import { action, SingletonAction, WillAppearEvent, WillDisappearEvent, KeyDownEvent, KeyUpEvent } from "@elgato/streamdeck";
@@ -78,9 +78,7 @@ export class Diagnostics extends SingletonAction {
         `powershell.exe -NonInteractive -NoProfile -ExecutionPolicy Bypass -File "${SCRIPT}" -StateFile "${STATE_FILE}" -OutFile "${RESULT_FILE}"`
       );
       const m      = stdout.match(/SUMMARY:(\d+)\|(\d+)\|(\d+)/);
-      this.summary = m
-        ? { pass: +m[1], warn: +m[2], fail: +m[3] }
-        : { pass: 0, warn: 0, fail: 0 };
+      this.summary = m ? { pass: +m[1], warn: +m[2], fail: +m[3] } : { pass: 0, warn: 0, fail: 0 };
     } catch {
       this.summary = { pass: 0, warn: 0, fail: 1 };
     }
@@ -97,7 +95,7 @@ export class Diagnostics extends SingletonAction {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private async renderTo(a: any): Promise<void> {
     if (this.diagState === "IDLE") {
-      await a.setImage(await makeButton(C.BLUE, [
+      await a.setImage(makeButton(C.BLUE, [
         { text: "DIAG",       y: 22, size: 14 },
         { text: "tap to run", y: 40, size: 10, color: "#aaddff", bold: false },
         { text: "15 checks",  y: 55, size: 10, color: "#aaaaaa", bold: false },
@@ -105,26 +103,23 @@ export class Diagnostics extends SingletonAction {
       ]));
       return;
     }
-
     if (this.diagState === "RUNNING") {
-      await a.setImage(await makeButton(C.GRAY, [
-        { text: "CHECKING",                   y: 20, size: 13 },
-        { text: this.SPIN[this.spinFrame],     y: 44, size: 24 },
-        { text: "please wait",                y: 62, size: 10, color: "#aaaaaa", bold: false },
+      await a.setImage(makeButton(C.GRAY, [
+        { text: "CHECKING",               y: 20, size: 13 },
+        { text: this.SPIN[this.spinFrame], y: 44, size: 24 },
+        { text: "please wait",            y: 62, size: 10, color: "#aaaaaa", bold: false },
       ]));
       return;
     }
-
     const s       = this.summary ?? { pass: 0, warn: 0, fail: 0 };
     const bg      = s.fail > 0 ? C.RED : s.warn > 0 ? C.YELLOW : C.GREEN;
     const overall = s.fail > 0 ? "ISSUES" : s.warn > 0 ? "WARNINGS" : "ALL CLEAR";
-
-    await a.setImage(await makeButton(bg, [
-      { text: "DIAG",                            y: 13, size: 10, color: "#cccccc", bold: false },
-      { text: overall,                           y: 29, size: 13 },
+    await a.setImage(makeButton(bg, [
+      { text: "DIAG",                              y: 13, size: 10, color: "#cccccc", bold: false },
+      { text: overall,                             y: 29, size: 13 },
       { text: `${s.pass}ok ${s.warn}wn ${s.fail}er`, y: 46, size: 12 },
-      { text: "tap=report",                      y: 60, size: 9,  color: "#dddddd", bold: false },
-      { text: "hold=rerun",                      y: 71, size: 9,  color: "#aaaaaa", bold: false },
+      { text: "tap=report",                        y: 60, size: 9,  color: "#dddddd", bold: false },
+      { text: "hold=rerun",                        y: 71, size: 9,  color: "#aaaaaa", bold: false },
     ]));
   }
 }
