@@ -1,14 +1,10 @@
 /**
  * events.ts — Key 4
- *
- * Displays the most recent event line emitted by the Arduino over serial.
- * Events are the ">>> ..." and "!!! ..." lines (charger plug/unplug,
- * UPS kick-in, shutdown triggered, boot info, etc.).
- *
- * Background flashes orange briefly on each new event, then settles.
+ * Displays the most recent event line from the Arduino.
+ * Background flashes orange briefly on each new event.
  */
 
-import { action, SingletonAction, WillAppearEvent, WillDisappearEvent } from "@elgato/streamdeck";
+import { action, SingletonAction, WillAppearEvent, WillDisappearEvent, KeyDownEvent } from "@elgato/streamdeck";
 import { serialReader } from "../serial-reader";
 import { makeButton, C } from "../render";
 
@@ -49,10 +45,11 @@ export class UpsEvents extends SingletonAction {
     }
   }
 
+  // No-op: prevents Stream Deck showing an alert icon when key is pressed
+  override onKeyDown(_ev: KeyDownEvent): void { /* display-only key */ }
+
   private async renderAll(flash: boolean): Promise<void> {
     for (const a of this.active) await this.renderTo(a, flash);
-
-    // Brief orange flash on new events, then settle back to normal colour
     if (flash) {
       if (this.flashTimer) clearTimeout(this.flashTimer);
       this.flashTimer = setTimeout(() => this.renderAll(false), 1500);
@@ -61,31 +58,25 @@ export class UpsEvents extends SingletonAction {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private async renderTo(a: any, flash: boolean): Promise<void> {
-    const d = serialReader.getData();
-
-    // Colour: orange flash on event, red if no serial, teal if ok
-    const bg = flash ? C.ORANGE
+    const d  = serialReader.getData();
+    const bg = flash       ? C.ORANGE
              : !d.connected ? C.GRAY
              : C.TEAL;
 
-    // Trim and wrap the event text to fit three short lines
-    const raw   = this.lastEvent || (d.connected ? "(no events yet)" : "NO SERIAL");
+    const raw   = this.lastEvent || (d.connected ? "(no events)" : "NO SERIAL");
     const lines = this.wrapEvent(raw);
 
     await a.setTitle("");
-    await a.setImage(makeButton(bg, [
-      { text: "EVENTS", y: 12, size: 10, color: "#cccccc", bold: false },
-      { text: lines[0], y: 30, size: 12 },
-      { text: lines[1], y: 46, size: 11, color: "#dddddd" },
-      { text: lines[2], y: 61, size: 10, color: "#bbbbbb", bold: false },
+    await a.setImage(await makeButton(bg, [
+      { text: "EVENTS",  y: 12, size: 10, color: "#cccccc", bold: false },
+      { text: lines[0],  y: 30, size: 12 },
+      { text: lines[1],  y: 46, size: 11, color: "#dddddd" },
+      { text: lines[2],  y: 61, size: 10, color: "#bbbbbb", bold: false },
     ]));
   }
 
-  /** Split a long event string into ≤3 short display chunks. */
   private wrapEvent(s: string): [string, string, string] {
-    // Strip leading >>> or !!!
     const clean = s.replace(/^[>!]{3}\s*/, "");
-    // Try to split on common boundaries
     const words = clean.split(" ");
     const chunks: string[] = ["", "", ""];
     let idx = 0;

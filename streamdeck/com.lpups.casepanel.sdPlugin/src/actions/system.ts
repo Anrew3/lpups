@@ -1,21 +1,13 @@
 /**
  * system.ts — Key 5
- *
- * Power control with two-step confirmation to prevent accidental triggers.
- *
- *   TAP  → Enters "CONFIRM SHUTDOWN?" state.
- *           Tap again within 4 s  → graceful shutdown (30s delay).
- *           No second tap → reverts to idle.
- *
- *   HOLD (≥ 2.5 s) → Immediate graceful restart (10 s delay).
- *
- * Idle display shows system uptime so you know at a glance how long the
- * LP has been running.
+ * TAP  → two-step shutdown confirm (4 s cancel window).
+ * HOLD (≥ 2.5 s) → immediate restart.
+ * Idle shows system uptime.
  */
 
 import { action, SingletonAction, WillAppearEvent, WillDisappearEvent, KeyDownEvent, KeyUpEvent } from "@elgato/streamdeck";
 import { exec } from "child_process";
-import { makeButton, C as RC } from "../render";
+import { makeButton, C } from "../render";
 
 type State = "IDLE" | "CONFIRM" | "EXECUTING";
 
@@ -33,7 +25,6 @@ export class SystemControl extends SingletonAction {
     this.active.add(ev.action);
     await this.fetchUptime();
     await this.renderAll();
-    // Refresh uptime every 60 s
     this.uptimeTimer = setInterval(async () => {
       await this.fetchUptime();
       if (this.state === "IDLE") await this.renderAll();
@@ -55,29 +46,23 @@ export class SystemControl extends SingletonAction {
     const held = Date.now() - this.pressStart;
 
     if (held >= 2500) {
-      // ── HOLD → Restart ──────────────────────────────────────────────────
       await this.execute("restart");
-    } else {
-      // ── TAP → Shutdown (two-step confirm) ───────────────────────────────
-      if (this.state === "IDLE") {
-        this.state = "CONFIRM";
+    } else if (this.state === "IDLE") {
+      this.state = "CONFIRM";
+      await this.renderAll();
+      this.confirmTimer = setTimeout(async () => {
+        this.state = "IDLE";
         await this.renderAll();
-        this.confirmTimer = setTimeout(async () => {
-          this.state = "IDLE";
-          await this.renderAll();
-        }, 4000);
-
-      } else if (this.state === "CONFIRM") {
-        if (this.confirmTimer) clearTimeout(this.confirmTimer);
-        await this.execute("shutdown");
-      }
+      }, 4000);
+    } else if (this.state === "CONFIRM") {
+      if (this.confirmTimer) clearTimeout(this.confirmTimer);
+      await this.execute("shutdown");
     }
   }
 
   private async execute(cmd: "shutdown" | "restart"): Promise<void> {
     this.state = "EXECUTING";
     await this.renderAll();
-
     if (cmd === "shutdown") {
       exec(`shutdown /s /t 30 /c "UPS panel: user-initiated shutdown"`);
     } else {
@@ -111,27 +96,27 @@ export class SystemControl extends SingletonAction {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private async renderTo(a: any): Promise<void> {
     if (this.state === "EXECUTING") {
-      await a.setImage(makeButton(C.RED, [
-        { text: "SYSTEM",    y: 18, size: 11, color: "#cccccc", bold: false },
-        { text: "SENDING",   y: 38, size: 14 },
-        { text: "COMMAND...",y: 55, size: 11 },
+      await a.setImage(await makeButton(C.RED, [
+        { text: "SYSTEM",      y: 18, size: 11, color: "#cccccc", bold: false },
+        { text: "SENDING",     y: 38, size: 14 },
+        { text: "COMMAND...",  y: 55, size: 11 },
       ]));
       return;
     }
 
     if (this.state === "CONFIRM") {
-      await a.setImage(makeButton(C.ORANGE, [
-        { text: "SHUTDOWN?",  y: 18, size: 14 },
-        { text: "TAP TO",     y: 38, size: 13 },
-        { text: "CONFIRM",    y: 55, size: 14 },
-        { text: "(4s cancel)",y: 68, size: 9, color: "#dddddd", bold: false },
+      await a.setImage(await makeButton(C.ORANGE, [
+        { text: "SHUTDOWN?",    y: 18, size: 14 },
+        { text: "TAP TO",       y: 38, size: 13 },
+        { text: "CONFIRM",      y: 55, size: 14 },
+        { text: "(4s cancel)",  y: 68, size: 9, color: "#dddddd", bold: false },
       ]));
       return;
     }
 
     // IDLE
     const uptime = this.uptimeStr || "...";
-    await a.setImage(makeButton(C.DKGRAY, [
+    await a.setImage(await makeButton(C.DKGRAY, [
       { text: "SYSTEM",    y: 13, size: 10, color: "#999999", bold: false },
       { text: uptime,      y: 30, size: 15 },
       { text: "uptime",    y: 42, size: 9,  color: "#888888", bold: false },
@@ -140,5 +125,3 @@ export class SystemControl extends SingletonAction {
     ]));
   }
 }
-
-const C = RC;

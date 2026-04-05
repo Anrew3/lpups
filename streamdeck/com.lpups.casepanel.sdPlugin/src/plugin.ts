@@ -1,11 +1,9 @@
 /**
  * plugin.ts — Entry point
- *
- * Registers all six actions, starts the Arduino serial reader, and
- * connects to the Stream Deck software.
+ * Registers all six actions, starts the serial reader, and connects.
  */
 
-import streamDeck from "@elgato/streamdeck";
+import streamDeck, { LogLevel } from "@elgato/streamdeck";
 import { serialReader } from "./serial-reader";
 import { BatteryStatus } from "./actions/battery";
 import { PowerRuntime }  from "./actions/power";
@@ -14,10 +12,13 @@ import { UpsEvents }     from "./actions/events";
 import { SystemControl } from "./actions/system";
 import { Diagnostics }   from "./actions/diagnostics";
 
-// Start watching the Arduino serial port
+// Write trace-level logs to %APPDATA%\Elgato\StreamDeck\logs\com.lpups.casepanel.log
+streamDeck.logger.setLevel(LogLevel.TRACE);
+
+// Start reading the Arduino serial port
 serialReader.start();
 
-// Register actions with the Stream Deck SDK
+// Register actions
 streamDeck.actions.registerAction(new BatteryStatus());
 streamDeck.actions.registerAction(new PowerRuntime());
 streamDeck.actions.registerAction(new NetworkToggle());
@@ -25,5 +26,5 @@ streamDeck.actions.registerAction(new UpsEvents());
 streamDeck.actions.registerAction(new SystemControl());
 streamDeck.actions.registerAction(new Diagnostics());
 
-// Connect to the Stream Deck software
+// Connect to Stream Deck software
 streamDeck.connect();

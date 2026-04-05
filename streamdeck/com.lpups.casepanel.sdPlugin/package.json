@@ -5,15 +5,17 @@
   "main": "bin/plugin.js",
   "scripts": {
     "prebuild": "node scripts/generate-icons.js",
-    "build":    "tsup src/plugin.ts --format cjs --outDir bin --no-splitting --minify",
-    "watch":    "tsup src/plugin.ts --format cjs --outDir bin --no-splitting --watch",
-    "dev":      "tsup src/plugin.ts --format cjs --outDir bin --no-splitting --watch"
+    "build":    "tsup",
+    "watch":    "tsup --watch",
+    "dev":      "tsup --watch"
   },
   "dependencies": {
-    "@elgato/streamdeck": "1.4.1"
+    "@elgato/streamdeck": "1.4.1",
+    "@napi-rs/canvas":    "^0.1.44"
   },
   "devDependencies": {
-    "tsup": "^8.0.0",
+    "@swc/core":  "^1.5.0",
+    "tsup":       "^8.0.0",
     "typescript": "^5.0.0"
   }
 }

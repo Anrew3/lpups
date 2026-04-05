@@ -1,13 +1,6 @@
 /**
  * network.ts — Key 3
- *
- * Toggles between WiFi-first and Cellular-first priority by adjusting
- * interface route metrics.  Both adapters remain active — only preference
- * changes.  The button shows the current active mode and toggles on press.
- *
- * Metrics used:
- *   WiFi-first:     WiFi=10,  Cellular=50
- *   Cellular-first: WiFi=100, Cellular=5
+ * Toggles between WiFi-first and Cellular-first priority.
  */
 
 import { action, SingletonAction, WillAppearEvent, WillDisappearEvent, KeyDownEvent } from "@elgato/streamdeck";
@@ -17,7 +10,7 @@ import path from "path";
 import { makeButton, C } from "../render";
 
 const execAsync = promisify(exec);
-const SCRIPT = path.join(__dirname, "..", "scripts", "network.ps1");
+const SCRIPT    = path.join(__dirname, "..", "scripts", "network.ps1");
 
 type NetMode = "WIFI" | "CELLULAR" | "UNKNOWN";
 
@@ -54,14 +47,12 @@ export class NetworkToggle extends SingletonAction {
   }
 
   private async setMode(mode: NetMode): Promise<void> {
-    // Show transitioning state
-    for (const a of this.active) {
-      await a.setImage(makeButton(C.GRAY, [
-        { text: "NETWORK",    y: 22, size: 10, color: "#cccccc", bold: false },
-        { text: "SWITCHING", y: 42, size: 13 },
-        { text: "...",        y: 58, size: 13 },
-      ]));
-    }
+    const switching = await makeButton(C.GRAY, [
+      { text: "NETWORK",   y: 22, size: 10, color: "#cccccc", bold: false },
+      { text: "SWITCHING", y: 42, size: 13 },
+      { text: "...",       y: 58, size: 13 },
+    ]);
+    for (const a of this.active) await a.setImage(switching);
 
     try {
       await execAsync(
@@ -80,19 +71,19 @@ export class NetworkToggle extends SingletonAction {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private async renderTo(a: any): Promise<void> {
-    const isCell  = this.mode === "CELLULAR";
-    const isWifi  = this.mode === "WIFI";
-    const bg      = isCell ? C.PURPLE : isWifi ? C.TEAL : C.GRAY;
-    const icon    = isCell ? "▲ CELL" : isWifi ? "▲ WIFI" : "? NET";
-    const sub     = isCell ? "WiFi standby" : isWifi ? "Cell standby" : "unknown";
-    const tapHint = isCell ? "tap→WIFI" : "tap→CELL";
+    const isCell = this.mode === "CELLULAR";
+    const isWifi = this.mode === "WIFI";
+    const bg     = isCell ? C.PURPLE : isWifi ? C.TEAL : C.GRAY;
+    const icon   = isCell ? "CELL"   : isWifi ? "WIFI" : "?";
+    const sub    = isCell ? "WiFi standby" : isWifi ? "Cell standby" : "unknown";
+    const hint   = isCell ? "tap->WIFI"    : "tap->CELL";
 
     await a.setTitle("");
-    await a.setImage(makeButton(bg, [
-      { text: "NETWORK",  y: 14, size: 10, color: "#cccccc", bold: false },
-      { text: icon,       y: 35, size: 17 },
-      { text: sub,        y: 51, size: 10, color: "#aaaaaa", bold: false },
-      { text: tapHint,    y: 65, size: 10, color: "#dddddd", bold: false },
+    await a.setImage(await makeButton(bg, [
+      { text: "NETWORK", y: 14, size: 10, color: "#cccccc", bold: false },
+      { text: icon,      y: 35, size: 19 },
+      { text: sub,       y: 51, size: 10, color: "#aaaaaa", bold: false },
+      { text: hint,      y: 65, size: 10, color: "#dddddd", bold: false },
     ]));
   }
 }
