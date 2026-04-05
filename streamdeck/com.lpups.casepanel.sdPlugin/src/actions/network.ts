@@ -10,14 +10,14 @@
  *   Cellular-first: WiFi=100, Cellular=5
  */
 
-import { action, SingletonAction, WillAppearEvent, KeyDownEvent } from "@elgato/streamdeck";
+import { action, SingletonAction, WillAppearEvent, WillDisappearEvent, KeyDownEvent } from "@elgato/streamdeck";
 import { exec } from "child_process";
 import { promisify } from "util";
 import path from "path";
 import { makeButton, C } from "../render";
 
 const execAsync = promisify(exec);
-const SCRIPT = path.join(__dirname, "..", "..", "scripts", "network.ps1");
+const SCRIPT = path.join(__dirname, "..", "scripts", "network.ps1");
 
 type NetMode = "WIFI" | "CELLULAR" | "UNKNOWN";
 

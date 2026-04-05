@@ -24,7 +24,7 @@ import { serialReader } from "../serial-reader";
 import { makeButton, C } from "../render";
 
 const execAsync = promisify(exec);
-const SCRIPT    = path.join(__dirname, "..", "..", "scripts", "diagnostics.ps1");
+const SCRIPT    = path.join(__dirname, "..", "scripts", "diagnostics.ps1");
 const RESULT_FILE = path.join(os.tmpdir(), "lpups-diagnostics.txt");
 const STATE_FILE  = path.join(os.tmpdir(), "lpups-serial-state.json");
 

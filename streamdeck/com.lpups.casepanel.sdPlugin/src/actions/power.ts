@@ -53,9 +53,11 @@ export class PowerRuntime extends SingletonAction {
              : b2.state === "CHARGING" ? C.TEAL
              : C.BLUE;
 
+    const rtH     = Math.floor(b2.runtime / 60);
+    const rtM     = b2.runtime % 60;
     const runtime = b2.present && b2.runtime > 0
-      ? `${Math.floor(b2.runtime / 60)}h ${b2.runtime % 60}m`
-      : "-- min";
+      ? rtH > 0 ? `${rtH}h ${rtM}m` : `${rtM}m`
+      : "--";
 
     await a.setTitle("");
     await a.setImage(makeButton(bg, [
