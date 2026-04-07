@@ -6,4 +6,5 @@ export default defineConfig({
   outDir:    "bin",
   splitting: false,
   minify:    true,
+  sourcemap: true,
 });

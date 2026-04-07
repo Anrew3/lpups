@@ -1,6 +1,9 @@
 import streamDeck, { action, SingletonAction, WillAppearEvent, WillDisappearEvent, KeyDownEvent } from "@elgato/streamdeck";
 import { serialReader, UPSData } from "../serial-reader";
-import { makeButton, battColor, pctBar, noDataButton, setImageIfChanged, C } from "../render";
+import {
+  createCanvas, text, drawBar, drawDivider, drawBatteryIcon, drawBoltIcon,
+  cachedImage, setImageIfChanged, noDataButton, battColor, C,
+} from "../render";
 
 @action({ UUID: "com.lpups.casepanel.battery" })
 export class BatteryStatus extends SingletonAction {
@@ -39,18 +42,42 @@ export class BatteryStatus extends SingletonAction {
   private async renderTo(a: any, d: UPSData): Promise<void> {
     try {
       const { b1, b2 } = d;
-      const worstPct = b2.present ? Math.min(b1.capacity, b2.capacity) : b1.capacity;
-      const bg       = !b2.present ? C.ORANGE : battColor(worstPct);
+      const pct     = b2.present ? Math.min(b1.capacity, b2.capacity) : b1.capacity;
+      const bg      = !b2.present ? C.ORANGE : battColor(pct);
+      const barFill = pct >= 50 ? "#22cc66" : pct >= 25 ? "#cccc22" : pct >= 10 ? "#cc8822" : "#cc2222";
+      const key     = `bat|${bg}|${b1.capacity}|${b2.capacity}|${b2.present}|${b1.acPresent}`;
 
       await a.setTitle("");
-      await setImageIfChanged(a, await makeButton(bg, [
-        { text: "BATTERY",                                            y: 12, size: 10, color: "#cccccc", bold: false },
-        { text: `B1 ${b1.capacity}%${b1.acPresent ? " AC" : ""}`,    y: 29, size: 15 },
-        { text: pctBar(b1.capacity),                                  y: 42, size: 11, color: "#aaffaa", bold: false },
-        { text: b2.present ? `B2 ${b2.capacity}%` : "B2 ABSENT",     y: 56, size: 13 },
-        { text: b2.present ? pctBar(b2.capacity)  : "-------",        y: 68, size: 11,
-          color: b2.present ? "#aaffaa" : "#ff8888", bold: false },
-      ]));
+      await setImageIfChanged(a, await cachedImage(key, () => {
+        const px = createCanvas(bg);
+
+        // Battery icon with fill level; bolt inside if AC present
+        drawBatteryIcon(px, 36, 3, pct, "#ffffff", barFill, "#1a1a1a");
+        if (b1.acPresent) drawBoltIcon(px, 36, 5, "#ffdd44");
+
+        // Big percentage (scale 3 = large bold digits)
+        text(px, `${pct}%`, 36, 39, 3);
+
+        // Thick progress bar
+        drawBar(px, 8, 43, 56, 5, pct, barFill, "#1a1a1a");
+
+        // Divider
+        drawDivider(px, 50);
+
+        // B1 mini bar with label
+        text(px, "B1", 12, 58, 1, "#aaaaaa", false);
+        drawBar(px, 22, 55, 42, 3, b1.capacity, "#88ccff", "#222222");
+
+        // B2 mini bar or ABSENT warning
+        text(px, "B2", 12, 67, 1, "#aaaaaa", false);
+        if (b2.present) {
+          drawBar(px, 22, 64, 42, 3, b2.capacity, "#88ccff", "#222222");
+        } else {
+          text(px, "ABSENT", 46, 67, 1, "#ff8888", true);
+        }
+
+        return px;
+      }));
     } catch (err) {
       streamDeck.logger.error(`[battery] render error: ${err}`);
     }

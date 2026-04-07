@@ -11,11 +11,14 @@
  *   disconnect()            — port closed or process exited
  *   data(d: UPSData)        — complete telemetry packet (~every 3 s)
  *   event(line: string)     — !!! or >>> alert line from the Arduino
+ *   stderr(msg: string)     — stderr output from PowerShell
+ *   error(msg: string)      — fatal error (max retries exceeded)
  */
 
 import { EventEmitter } from "events";
 import { spawn, ChildProcess } from "child_process";
 import { createInterface } from "readline";
+import { existsSync } from "fs";
 import path from "path";
 
 // __dirname is <plugin-root>/bin/ when bundled by tsup
@@ -55,6 +58,18 @@ export interface UPSData {
   connected:  boolean;
 }
 
+// ─── Safe number parsing (returns fallback on NaN) ────────────────────────────
+
+function safeInt(val: string, fallback = 0): number {
+  const n = parseInt(val, 10);
+  return isNaN(n) ? fallback : n;
+}
+
+function safeFloat(val: string, fallback = 0): number {
+  const n = parseFloat(val);
+  return isNaN(n) ? fallback : n;
+}
+
 // ─── Parser ───────────────────────────────────────────────────────────────────
 
 class SerialReader extends EventEmitter {
@@ -62,6 +77,7 @@ class SerialReader extends EventEmitter {
   private reconnectTimer?: NodeJS.Timeout;
   private running    = false;
   private retryCount = 0;
+  private _lastError = "";
 
   // Accumulate key-value lines into a pending packet until a blank line fires them
   private parseBlock: "NONE" | "B1" | "B2" = "NONE";
@@ -88,15 +104,26 @@ class SerialReader extends EventEmitter {
     };
   }
 
+  /** Last error message from the serial reader (for diagnostics). */
+  getLastError(): string { return this._lastError; }
+
   start(): void {
     if (this.running) return;
     this.running = true;
+
+    // Verify script exists before attempting spawn
+    if (!existsSync(PS_SCRIPT)) {
+      this._lastError = `Script not found: ${PS_SCRIPT}`;
+      this.emit("error", this._lastError);
+      return;
+    }
+
     this.spawnScript();
   }
 
   stop(): void {
     this.running = false;
-    if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
+    if (this.reconnectTimer) { clearTimeout(this.reconnectTimer); this.reconnectTimer = undefined; }
     this.proc?.kill();
     this.proc = undefined;
   }
@@ -104,40 +131,81 @@ class SerialReader extends EventEmitter {
   private spawnScript(): void {
     if (!this.running) return;
 
-    const child = spawn("powershell.exe", [
-      "-NonInteractive", "-NoProfile",
-      "-ExecutionPolicy", "Bypass",
-      "-File", PS_SCRIPT,
-    ]);
+    let child: ChildProcess;
+    try {
+      child = spawn("powershell.exe", [
+        "-NonInteractive", "-NoProfile",
+        "-ExecutionPolicy", "Bypass",
+        "-File", PS_SCRIPT,
+      ]);
+    } catch (err: unknown) {
+      // spawn itself can throw synchronously in edge cases
+      const msg = err instanceof Error ? err.message : String(err);
+      this._lastError = `Failed to spawn PowerShell: ${msg}`;
+      this.emit("error", this._lastError);
+      this.scheduleRetry();
+      return;
+    }
+
     this.proc = child;
 
-    const rl = createInterface({ input: child.stdout! });
-    rl.on("line", line => this.handleLine(line.trimEnd()));
+    // ── CRITICAL: Handle spawn errors (e.g., powershell.exe not found) ──
+    child.on("error", (err: Error) => {
+      this._lastError = `PowerShell spawn error: ${err.message}`;
+      this.emit("stderr", this._lastError);
+      // The 'close' event will fire after this, triggering retry logic
+    });
 
-    child.on("close", () => {
+    // Only set up readline if stdout is available
+    if (child.stdout) {
+      const rl = createInterface({ input: child.stdout });
+      rl.on("line", line => {
+        try {
+          this.handleLine(line.trimEnd());
+        } catch (err: unknown) {
+          const msg = err instanceof Error ? err.message : String(err);
+          this.emit("stderr", `Parse error: ${msg}`);
+        }
+      });
+    } else {
+      this.emit("stderr", "PowerShell process has no stdout — cannot read serial data");
+    }
+
+    child.on("close", (code) => {
       if (this._data.connected) {
         this._data.connected = false;
         this.emit("disconnect");
       }
       this.proc = undefined;
-      if (!this.running) return;
-
-      // Exponential backoff: 8s → 16s → 32s → ... → capped at 120s
-      if (this.retryCount >= MAX_RETRY_COUNT) {
-        this.emit("error", `Serial reader gave up after ${MAX_RETRY_COUNT} retries`);
-        return;
+      if (code !== 0 && code !== null) {
+        this._lastError = `PowerShell exited with code ${code}`;
+        this.emit("stderr", this._lastError);
       }
-      const delay = Math.min(BASE_RETRY_MS * Math.pow(2, this.retryCount), MAX_RETRY_MS);
-      const jitter = Math.random() * 1000;
-      this.retryCount++;
-      this.reconnectTimer = setTimeout(() => this.spawnScript(), delay + jitter);
+      if (!this.running) return;
+      this.scheduleRetry();
     });
 
     // Log stderr so PowerShell script errors are visible
     child.stderr?.on("data", (chunk: Buffer) => {
       const msg = chunk.toString().trim();
-      if (msg) this.emit("stderr", msg);
+      if (msg) {
+        this._lastError = msg;
+        this.emit("stderr", msg);
+      }
     });
+  }
+
+  private scheduleRetry(): void {
+    if (this.retryCount >= MAX_RETRY_COUNT) {
+      this._lastError = `Gave up after ${MAX_RETRY_COUNT} retries`;
+      this.emit("error", this._lastError);
+      return;
+    }
+    // Exponential backoff: 8s → 16s → 32s → ... → capped at 120s
+    const delay = Math.min(BASE_RETRY_MS * Math.pow(2, this.retryCount), MAX_RETRY_MS);
+    const jitter = Math.random() * 1000;
+    this.retryCount++;
+    this.reconnectTimer = setTimeout(() => this.spawnScript(), delay + jitter);
   }
 
   private handleLine(line: string): void {
@@ -158,7 +226,8 @@ class SerialReader extends EventEmitter {
       return;
     }
     if (line.startsWith("ERROR:")) {
-      // Script will exit — reconnect happens via the close handler
+      this._lastError = line.slice(6).trim();
+      this.emit("stderr", `Serial script: ${this._lastError}`);
       return;
     }
 
@@ -198,8 +267,8 @@ class SerialReader extends EventEmitter {
   private parseB1Line(key: string, val: string): void {
     const b = this.pending.b1;
     switch (key) {
-      case "capacity":    b.capacity  = parseInt(val);               break;
-      case "runtime":     b.runtime   = parseInt(val);               break;
+      case "capacity":    b.capacity  = safeInt(val);                break;
+      case "runtime":     b.runtime   = safeInt(val);                break;
       case "charging":    b.charging  = val.toUpperCase() === "YES"; break;
       case "ac present":  b.acPresent = val.toUpperCase() === "YES"; break;
     }
@@ -208,13 +277,13 @@ class SerialReader extends EventEmitter {
   private parseB2Line(key: string, val: string): void {
     const b = this.pending.b2;
     switch (key) {
-      case "voltage":     b.voltage    = parseInt(val);                     break;
-      case "capacity":    b.capacity   = parseInt(val);                     break;
-      case "present":     b.present    = val.toUpperCase() === "YES";       break;
-      case "charging":    b.charging   = val.toUpperCase() === "YES";       break;
-      case "draw":        b.draw       = parseFloat(val);                   break;
-      case "avg current": b.avgCurrent = parseInt(val);                     break;
-      case "runtime":     b.runtime    = val === "--" ? 0 : parseInt(val);  break;
+      case "voltage":     b.voltage    = safeInt(val);                       break;
+      case "capacity":    b.capacity   = safeInt(val);                       break;
+      case "present":     b.present    = val.toUpperCase() === "YES";        break;
+      case "charging":    b.charging   = val.toUpperCase() === "YES";        break;
+      case "draw":        b.draw       = safeFloat(val);                     break;
+      case "avg current": b.avgCurrent = safeInt(val);                       break;
+      case "runtime":     b.runtime    = val === "--" ? 0 : safeInt(val);    break;
       case "state":       b.state      = this.toB2State(val);               break;
     }
   }

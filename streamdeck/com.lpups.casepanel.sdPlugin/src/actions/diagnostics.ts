@@ -5,7 +5,10 @@ import { writeFileSync, existsSync } from "fs";
 import path from "path";
 import os from "os";
 import { serialReader } from "../serial-reader";
-import { makeButton, setImageIfChanged, C } from "../render";
+import {
+  createCanvas, text, drawHealthIcon, drawCheckIcon, drawXIcon, drawGearIcon,
+  cachedImage, setImageIfChanged, C,
+} from "../render";
 
 const execAsync   = promisify(exec);
 const SCRIPT      = path.join(__dirname, "..", "scripts", "diagnostics.ps1");
@@ -54,7 +57,11 @@ export class Diagnostics extends SingletonAction {
     await this.renderAll();
     this.spinTimer = setInterval(async () => { this.spinFrame = (this.spinFrame + 1) % SPIN.length; await this.renderAll(); }, 300);
     const sd = serialReader.getData();
-    writeFileSync(STATE_FILE, JSON.stringify({ connected: sd.connected, b1Capacity: sd.b1.capacity, b2Present: sd.b2.present }));
+    try {
+      writeFileSync(STATE_FILE, JSON.stringify({ connected: sd.connected, b1Capacity: sd.b1.capacity, b2Present: sd.b2.present }));
+    } catch (writeErr) {
+      streamDeck.logger.error(`[diagnostics] failed to write state file: ${writeErr}`);
+    }
     try {
       const { stdout } = await execAsync(
         `powershell.exe -NonInteractive -NoProfile -ExecutionPolicy Bypass -File "${SCRIPT}" -StateFile "${STATE_FILE}" -OutFile "${RESULT_FILE}"`,
@@ -62,8 +69,11 @@ export class Diagnostics extends SingletonAction {
       );
       const m = stdout.match(/SUMMARY:(\d+)\|(\d+)\|(\d+)/);
       this.summary = m ? { pass: +m[1], warn: +m[2], fail: +m[3] } : { pass: 0, warn: 0, fail: 0 };
-    } catch { this.summary = { pass: 0, warn: 0, fail: 1 }; }
-    if (this.spinTimer) clearInterval(this.spinTimer);
+    } catch (err) {
+      streamDeck.logger.error(`[diagnostics] powershell failed: ${err}`);
+      this.summary = { pass: 0, warn: 0, fail: 1 };
+    }
+    if (this.spinTimer) { clearInterval(this.spinTimer); this.spinTimer = undefined; }
     this.diagState = "DONE";
     await this.renderAll();
   }
@@ -73,29 +83,60 @@ export class Diagnostics extends SingletonAction {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private async renderTo(a: any): Promise<void> {
     try {
+      // ── IDLE state ──
       if (this.diagState === "IDLE") {
-        return void await setImageIfChanged(a, await makeButton(C.BLUE, [
-          { text: "DIAG",       y: 22, size: 14 },
-          { text: "tap to run", y: 40, size: 10, color: "#aaddff", bold: false },
-          { text: "15 checks",  y: 55, size: 10, color: "#aaaaaa", bold: false },
-          { text: "hold=rerun", y: 68, size: 9,  color: "#888888", bold: false },
-        ]));
+        return void await setImageIfChanged(a, await cachedImage("diag|idle", () => {
+          const px = createCanvas(C.BLUE);
+          drawHealthIcon(px, 36, 3, "#88ccff");
+          text(px, "DIAG", 36, 26, 2);
+          text(px, "tap to run", 36, 39, 1, "#aaddff", false);
+          text(px, "15 checks", 36, 51, 1, "#aaaaaa", false);
+          text(px, "hold=rerun", 36, 63, 1, "#888888", false);
+          return px;
+        }));
       }
+
+      // ── RUNNING state ──
       if (this.diagState === "RUNNING") {
-        return void await setImageIfChanged(a, await makeButton(C.GRAY, [
-          { text: "CHECKING",          y: 20, size: 13 },
-          { text: SPIN[this.spinFrame], y: 44, size: 24 },
-          { text: "please wait",       y: 62, size: 10, color: "#aaaaaa", bold: false },
-        ]));
+        const key = `diag|run|${this.spinFrame}`;
+        return void await setImageIfChanged(a, await cachedImage(key, () => {
+          const px = createCanvas(C.GRAY);
+          drawGearIcon(px, 36, 3, "#aaaaaa");
+          text(px, "CHECKING", 36, 26, 1, "#ffffff", true);
+          text(px, SPIN[this.spinFrame], 36, 50, 3);
+          text(px, "please wait", 36, 65, 1, "#aaaaaa", false);
+          return px;
+        }));
       }
-      const s = this.summary ?? { pass: 0, warn: 0, fail: 0 };
-      await setImageIfChanged(a, await makeButton(s.fail > 0 ? C.RED : s.warn > 0 ? C.YELLOW : C.GREEN, [
-        { text: "DIAG",                                y: 13, size: 10, color: "#cccccc", bold: false },
-        { text: s.fail > 0 ? "ISSUES" : s.warn > 0 ? "WARNINGS" : "ALL CLEAR", y: 29, size: 13 },
-        { text: `${s.pass}ok ${s.warn}wn ${s.fail}er`, y: 46, size: 12 },
-        { text: "tap=report",                          y: 60, size: 9,  color: "#dddddd", bold: false },
-        { text: "hold=rerun",                          y: 71, size: 9,  color: "#aaaaaa", bold: false },
-      ]));
+
+      // ── DONE state ──
+      const s  = this.summary ?? { pass: 0, warn: 0, fail: 0 };
+      const bg = s.fail > 0 ? C.RED : s.warn > 0 ? C.YELLOW : C.GREEN;
+      const key = `diag|done|${s.pass}|${s.warn}|${s.fail}`;
+
+      await setImageIfChanged(a, await cachedImage(key, () => {
+        const px = createCanvas(bg);
+
+        // Result icon (check = good, X = issues)
+        if (s.fail > 0) drawXIcon(px, 36, 4, "#ff8888");
+        else            drawCheckIcon(px, 36, 4, "#88ff88");
+
+        // Label
+        text(px, "DIAG", 36, 20, 1, "#cccccc", false);
+
+        // Result (scale 2)
+        const label = s.fail > 0 ? "FAIL" : s.warn > 0 ? "WARN" : "OK";
+        text(px, label, 36, 38, 2);
+
+        // Pass/warn/fail counts
+        text(px, `${s.pass}ok ${s.warn}wn ${s.fail}er`, 36, 51, 1, "#ffffff", false);
+
+        // Action hints
+        text(px, "tap=report", 36, 62, 1, "#dddddd", false);
+        text(px, "hold=rerun", 36, 71, 1, "#aaaaaa", false);
+
+        return px;
+      }));
     } catch (err) {
       streamDeck.logger.error(`[diagnostics] render error: ${err}`);
     }
