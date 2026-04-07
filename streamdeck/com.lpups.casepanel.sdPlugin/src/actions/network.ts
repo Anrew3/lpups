@@ -39,7 +39,10 @@ export class NetworkToggle extends SingletonAction {
         { timeout: 15_000 },
       );
       this.mode = stdout.trim().toUpperCase() as NetMode;
-    } catch { this.mode = "UNKNOWN"; }
+    } catch (err) {
+      streamDeck.logger.error(`[network] status query failed: ${err}`);
+      this.mode = "UNKNOWN";
+    }
     await this.renderAll();
   }
 
@@ -64,7 +67,10 @@ export class NetworkToggle extends SingletonAction {
           { timeout: 30_000 },
         );
         this.mode = mode;
-      } catch { this.mode = "UNKNOWN"; }
+      } catch (err) {
+        streamDeck.logger.error(`[network] switch to ${mode} failed: ${err}`);
+        this.mode = "UNKNOWN";
+      }
       await this.renderAll();
     } finally {
       this.isSwitching = false;

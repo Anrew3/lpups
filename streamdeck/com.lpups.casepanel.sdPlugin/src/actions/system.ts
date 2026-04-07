@@ -58,7 +58,11 @@ export class SystemControl extends SingletonAction {
     await this.renderAll();
     exec(cmd === "shutdown"
       ? `shutdown /s /t 30 /c "LPUPS panel shutdown"`
-      : `shutdown /r /t 10 /c "LPUPS panel restart"`);
+      : `shutdown /r /t 10 /c "LPUPS panel restart"`,
+      (err) => {
+        if (err) streamDeck.logger.error(`[system] ${cmd} failed: ${err.message}`);
+        setTimeout(() => { this.state = "IDLE"; this.renderAll(); }, 5000);
+      });
   }
 
   private async fetchUptime(): Promise<void> {

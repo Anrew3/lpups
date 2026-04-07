@@ -57,7 +57,11 @@ export class Diagnostics extends SingletonAction {
     await this.renderAll();
     this.spinTimer = setInterval(async () => { this.spinFrame = (this.spinFrame + 1) % SPIN.length; await this.renderAll(); }, 300);
     const sd = serialReader.getData();
-    writeFileSync(STATE_FILE, JSON.stringify({ connected: sd.connected, b1Capacity: sd.b1.capacity, b2Present: sd.b2.present }));
+    try {
+      writeFileSync(STATE_FILE, JSON.stringify({ connected: sd.connected, b1Capacity: sd.b1.capacity, b2Present: sd.b2.present }));
+    } catch (writeErr) {
+      streamDeck.logger.error(`[diagnostics] failed to write state file: ${writeErr}`);
+    }
     try {
       const { stdout } = await execAsync(
         `powershell.exe -NonInteractive -NoProfile -ExecutionPolicy Bypass -File "${SCRIPT}" -StateFile "${STATE_FILE}" -OutFile "${RESULT_FILE}"`,
@@ -65,8 +69,11 @@ export class Diagnostics extends SingletonAction {
       );
       const m = stdout.match(/SUMMARY:(\d+)\|(\d+)\|(\d+)/);
       this.summary = m ? { pass: +m[1], warn: +m[2], fail: +m[3] } : { pass: 0, warn: 0, fail: 0 };
-    } catch { this.summary = { pass: 0, warn: 0, fail: 1 }; }
-    if (this.spinTimer) clearInterval(this.spinTimer);
+    } catch (err) {
+      streamDeck.logger.error(`[diagnostics] powershell failed: ${err}`);
+      this.summary = { pass: 0, warn: 0, fail: 1 };
+    }
+    if (this.spinTimer) { clearInterval(this.spinTimer); this.spinTimer = undefined; }
     this.diagState = "DONE";
     await this.renderAll();
   }
