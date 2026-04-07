@@ -1,0 +1,28 @@
+{
+  "Name": "LPUPS Case Panel",
+  "Description": "LattePanda UPS monitoring and control — battery status, power draw, network toggle, and system diagnostics.",
+  "com.lpups.casepanel.battery": {
+    "Name": "Battery Status",
+    "Tooltip": "B1 (18650 UPS) and B2 (12V LiON pack) capacity, state, and charging indicator."
+  },
+  "com.lpups.casepanel.power": {
+    "Name": "Power and Runtime",
+    "Tooltip": "Live power draw in Watts and estimated minutes remaining on the 12V pack."
+  },
+  "com.lpups.casepanel.network": {
+    "Name": "Network Mode",
+    "Tooltip": "Toggle between WiFi-first and Cellular-first routing priority. Both adapters stay active."
+  },
+  "com.lpups.casepanel.events": {
+    "Name": "UPS Events",
+    "Tooltip": "Last event from the Arduino UPS — charger connected/disconnected, kick-in, shutdown trigger."
+  },
+  "com.lpups.casepanel.system": {
+    "Name": "System Control",
+    "Tooltip": "Tap to initiate shutdown (with 4-second confirm). Hold 2.5 seconds to restart."
+  },
+  "com.lpups.casepanel.diagnostics": {
+    "Name": "Diagnostics",
+    "Tooltip": "Run 15 system sanity checks. Shows pass/warn/fail summary. Tap result to open detailed report."
+  }
+}
