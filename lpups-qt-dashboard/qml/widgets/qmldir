@@ -1,0 +1,8 @@
+module widgets
+B1Card 1.0 B1Card.qml
+B2Card 1.0 B2Card.qml
+PowerSparkline 1.0 PowerSparkline.qml
+EventLog 1.0 EventLog.qml
+NetworkCard 1.0 NetworkCard.qml
+SystemControl 1.0 SystemControl.qml
+ClockWidget 1.0 ClockWidget.qml
