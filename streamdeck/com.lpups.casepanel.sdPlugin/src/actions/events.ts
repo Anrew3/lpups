@@ -1,6 +1,9 @@
 import streamDeck, { action, SingletonAction, WillAppearEvent, WillDisappearEvent, KeyDownEvent } from "@elgato/streamdeck";
 import { serialReader } from "../serial-reader";
-import { makeButton, setImageIfChanged, C } from "../render";
+import {
+  createCanvas, text, drawAlertIcon,
+  cachedImage, setImageIfChanged, C,
+} from "../render";
 
 @action({ UUID: "com.lpups.casepanel.events" })
 export class UpsEvents extends SingletonAction {
@@ -47,14 +50,25 @@ export class UpsEvents extends SingletonAction {
       const bg  = flash ? C.ORANGE : !d.connected ? C.GRAY : C.TEAL;
       const raw = this.lastEvent || (d.connected ? "(no events)" : "NO SERIAL");
       const [l0, l1, l2] = this.wrapEvent(raw);
+      const key = `evt|${bg}|${l0}|${l1}|${l2}`;
 
       await a.setTitle("");
-      await setImageIfChanged(a, await makeButton(bg, [
-        { text: "EVENTS", y: 12, size: 10, color: "#cccccc", bold: false },
-        { text: l0,       y: 30, size: 12 },
-        { text: l1,       y: 46, size: 11, color: "#dddddd" },
-        { text: l2,       y: 61, size: 10, color: "#bbbbbb", bold: false },
-      ]));
+      await setImageIfChanged(a, await cachedImage(key, () => {
+        const px = createCanvas(bg);
+
+        // Alert triangle icon (yellow flash on new event)
+        drawAlertIcon(px, 36, 2, flash ? "#ffdd44" : "#ffffff");
+
+        // "EVENTS" label
+        text(px, "EVENTS", 36, 25, 1, "#aaaaaa", false);
+
+        // Wrapped event text (3 lines, descending brightness)
+        text(px, l0, 36, 40, 1, "#ffffff", true);
+        text(px, l1, 36, 52, 1, "#dddddd", true);
+        text(px, l2, 36, 64, 1, "#bbbbbb", false);
+
+        return px;
+      }));
     } catch (err) {
       streamDeck.logger.error(`[events] render error: ${err}`);
     }

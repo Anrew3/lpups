@@ -1,6 +1,9 @@
 import streamDeck, { action, SingletonAction, WillAppearEvent, WillDisappearEvent, KeyDownEvent } from "@elgato/streamdeck";
 import { serialReader, UPSData } from "../serial-reader";
-import { makeButton, noDataButton, setImageIfChanged, C } from "../render";
+import {
+  createCanvas, text, drawBoltIcon, drawDivider,
+  cachedImage, setImageIfChanged, noDataButton, C,
+} from "../render";
 
 @action({ UUID: "com.lpups.casepanel.power" })
 export class PowerRuntime extends SingletonAction {
@@ -38,20 +41,39 @@ export class PowerRuntime extends SingletonAction {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private async renderTo(a: any, d: UPSData): Promise<void> {
     try {
-      const { b2 } = d;
-      const bg      = !b2.present ? C.GRAY : b2.state === "CHARGING" ? C.TEAL : C.BLUE;
-      const rtH     = Math.floor(b2.runtime / 60);
-      const rtM     = b2.runtime % 60;
-      const runtime = b2.present && b2.runtime > 0 ? (rtH > 0 ? `${rtH}h ${rtM}m` : `${rtM}m`) : "--";
+      const { b2 }    = d;
+      const bg        = !b2.present ? C.GRAY : b2.state === "CHARGING" ? C.TEAL : C.BLUE;
+      const rtH       = Math.floor(b2.runtime / 60);
+      const rtM       = b2.runtime % 60;
+      const runtime   = b2.present && b2.runtime > 0 ? (rtH > 0 ? `${rtH}h ${rtM}m` : `${rtM}m`) : "--";
+      const wattStr   = b2.present ? `${b2.draw}W` : "--";
+      const rtScale   = runtime.length <= 6 ? 2 : 1;
+      const key       = `pwr|${bg}|${b2.present}|${b2.draw}|${b2.avgCurrent}|${b2.runtime}|${b2.state}`;
 
       await a.setTitle("");
-      await setImageIfChanged(a, await makeButton(bg, [
-        { text: "POWER",                                         y: 12, size: 10, color: "#cccccc", bold: false },
-        { text: b2.present ? `${b2.draw} W`       : "--",        y: 31, size: 18 },
-        { text: b2.present ? `~${b2.avgCurrent}mA` : "-- mA",   y: 47, size: 12, color: "#aaddff", bold: false },
-        { text: "RUNTIME",                                       y: 59, size: 9,  color: "#999999", bold: false },
-        { text: runtime,                                         y: 71, size: 13 },
-      ]));
+      await setImageIfChanged(a, await cachedImage(key, () => {
+        const px = createCanvas(bg);
+
+        // Bolt icon (yellow if charging, blue-ish otherwise)
+        drawBoltIcon(px, 36, 3, b2.state === "CHARGING" ? "#ffdd44" : "#88ccff");
+
+        // Big wattage (scale 2)
+        text(px, wattStr, 36, 28, 2);
+
+        // Current draw
+        text(px, b2.present ? `~${b2.avgCurrent}mA` : "-- mA", 36, 39, 1, "#aaddff", false);
+
+        // Divider
+        drawDivider(px, 42);
+
+        // Runtime label
+        text(px, "RUNTIME", 36, 52, 1, "#888888", false);
+
+        // Runtime value (auto-scale: scale 2 if ≤6 chars, else scale 1)
+        text(px, runtime, 36, 67, rtScale);
+
+        return px;
+      }));
     } catch (err) {
       streamDeck.logger.error(`[power] render error: ${err}`);
     }

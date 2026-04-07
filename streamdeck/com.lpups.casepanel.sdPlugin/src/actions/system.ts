@@ -1,6 +1,9 @@
 import streamDeck, { action, SingletonAction, WillAppearEvent, WillDisappearEvent, KeyDownEvent, KeyUpEvent } from "@elgato/streamdeck";
 import { exec } from "child_process";
-import { makeButton, setImageIfChanged, C } from "../render";
+import {
+  createCanvas, text, drawPowerBtnIcon, drawAlertIcon, drawDivider,
+  cachedImage, setImageIfChanged, C,
+} from "../render";
 
 type State = "IDLE" | "CONFIRM" | "EXECUTING";
 
@@ -79,28 +82,53 @@ export class SystemControl extends SingletonAction {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private async renderTo(a: any): Promise<void> {
     try {
+      // ── EXECUTING state ──
       if (this.state === "EXECUTING") {
-        return void await setImageIfChanged(a, await makeButton(C.RED, [
-          { text: "SYSTEM",      y: 18, size: 11, color: "#cccccc", bold: false },
-          { text: "SENDING",     y: 38, size: 14 },
-          { text: "COMMAND...",  y: 55, size: 11 },
-        ]));
+        return void await setImageIfChanged(a, await cachedImage("sys|exec", () => {
+          const px = createCanvas(C.RED);
+          drawAlertIcon(px, 36, 3, "#ffaaaa");
+          text(px, "SENDING", 36, 30, 1, "#ffffff", true);
+          text(px, "CMD...", 36, 48, 2);
+          return px;
+        }));
       }
+
+      // ── CONFIRM state ──
       if (this.state === "CONFIRM") {
-        return void await setImageIfChanged(a, await makeButton(C.ORANGE, [
-          { text: "SHUTDOWN?",   y: 18, size: 14 },
-          { text: "TAP TO",      y: 38, size: 13 },
-          { text: "CONFIRM",     y: 55, size: 14 },
-          { text: "(4s cancel)", y: 68, size: 9, color: "#dddddd", bold: false },
-        ]));
+        return void await setImageIfChanged(a, await cachedImage("sys|confirm", () => {
+          const px = createCanvas(C.ORANGE);
+          drawAlertIcon(px, 36, 2, "#ffdd44");
+          text(px, "SHUTDOWN?", 36, 26, 1, "#ffffff", true);
+          text(px, "TAP TO", 36, 44, 2);
+          text(px, "CONFIRM", 36, 56, 1, "#ffffff", true);
+          text(px, "4s cancel", 36, 68, 1, "#dddddd", false);
+          return px;
+        }));
       }
-      await setImageIfChanged(a, await makeButton(C.DKGRAY, [
-        { text: "SYSTEM",                      y: 13, size: 10, color: "#999999", bold: false },
-        { text: this.uptimeStr || "...",        y: 30, size: 15 },
-        { text: "uptime",                      y: 42, size: 9,  color: "#888888", bold: false },
-        { text: "TAP=OFF",                     y: 57, size: 11, color: "#ffaaaa" },
-        { text: "HOLD=RST",                    y: 69, size: 10, color: "#aaaaff", bold: false },
-      ]));
+
+      // ── IDLE state ──
+      const key = `sys|idle|${this.uptimeStr}`;
+      await setImageIfChanged(a, await cachedImage(key, () => {
+        const px = createCanvas(C.DKGRAY);
+
+        // Power button icon
+        drawPowerBtnIcon(px, 36, 3, "#aaaaaa");
+
+        // Uptime value (scale 2 = bold)
+        text(px, this.uptimeStr || "...", 36, 30, 2);
+
+        // "uptime" label
+        text(px, "uptime", 36, 41, 1, "#888888", false);
+
+        // Divider
+        drawDivider(px, 44);
+
+        // Action hints
+        text(px, "TAP=OFF", 36, 55, 1, "#ffaaaa", true);
+        text(px, "HOLD=RST", 36, 66, 1, "#aaaaff", false);
+
+        return px;
+      }));
     } catch (err) {
       streamDeck.logger.error(`[system] render error: ${err}`);
     }
