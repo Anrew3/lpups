@@ -19,8 +19,10 @@ import { createInterface } from "readline";
 import path from "path";
 
 // __dirname is <plugin-root>/bin/ when bundled by tsup
-const PS_SCRIPT    = path.join(__dirname, "..", "scripts", "serial-reader.ps1");
-const RECONNECT_MS = 8000;
+const PS_SCRIPT        = path.join(__dirname, "..", "scripts", "serial-reader.ps1");
+const BASE_RETRY_MS    = 8000;
+const MAX_RETRY_MS     = 120_000;
+const MAX_RETRY_COUNT  = 50;
 
 // ─── Data types ───────────────────────────────────────────────────────────────
 
@@ -58,7 +60,8 @@ export interface UPSData {
 class SerialReader extends EventEmitter {
   private proc?:           ChildProcess;
   private reconnectTimer?: NodeJS.Timeout;
-  private running = false;
+  private running    = false;
+  private retryCount = 0;
 
   // Accumulate key-value lines into a pending packet until a blank line fires them
   private parseBlock: "NONE" | "B1" | "B2" = "NONE";
@@ -117,13 +120,24 @@ class SerialReader extends EventEmitter {
         this.emit("disconnect");
       }
       this.proc = undefined;
-      if (this.running) {
-        this.reconnectTimer = setTimeout(() => this.spawnScript(), RECONNECT_MS);
+      if (!this.running) return;
+
+      // Exponential backoff: 8s → 16s → 32s → ... → capped at 120s
+      if (this.retryCount >= MAX_RETRY_COUNT) {
+        this.emit("error", `Serial reader gave up after ${MAX_RETRY_COUNT} retries`);
+        return;
       }
+      const delay = Math.min(BASE_RETRY_MS * Math.pow(2, this.retryCount), MAX_RETRY_MS);
+      const jitter = Math.random() * 1000;
+      this.retryCount++;
+      this.reconnectTimer = setTimeout(() => this.spawnScript(), delay + jitter);
     });
 
-    // Drain stderr so the process doesn't block
-    child.stderr?.resume();
+    // Log stderr so PowerShell script errors are visible
+    child.stderr?.on("data", (chunk: Buffer) => {
+      const msg = chunk.toString().trim();
+      if (msg) this.emit("stderr", msg);
+    });
   }
 
   private handleLine(line: string): void {
@@ -139,6 +153,7 @@ class SerialReader extends EventEmitter {
     // PS script connection / error markers
     if (line.startsWith("CONNECTED:")) {
       this._data.connected = true;
+      this.retryCount = 0; // Reset backoff on successful connection
       this.emit("connect", line.slice("CONNECTED:".length));
       return;
     }
@@ -234,7 +249,9 @@ class SerialReader extends EventEmitter {
     if (b2.state      !== undefined) this._data.b2.state      = b2.state;
 
     this._data.lastUpdate = new Date();
-    this.emit("data", this.getData());
+    if (this.listenerCount("data") > 0) {
+      this.emit("data", this.getData());
+    }
   }
 }
 
