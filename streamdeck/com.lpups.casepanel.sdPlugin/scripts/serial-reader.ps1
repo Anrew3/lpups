@@ -11,12 +11,14 @@ function Find-ArduinoPort {
     # Search WMI PnP entities for any USB serial / Arduino / DFRobot device
     $device = Get-WmiObject Win32_PnPEntity -ErrorAction SilentlyContinue |
         Where-Object {
-            $_.Name -match "Arduino"    -or
-            $_.Name -match "DFRobot"   -or
-            $_.Name -match "USB Serial" -or
-            $_.Name -match "USB-Serial" -or
-            $_.Name -match "CH340"     -or
-            $_.Name -match "CP210"     -or
+            $_.Name -match "Arduino"      -or
+            $_.Name -match "DFRobot"     -or
+            $_.Name -match "LattePanda"  -or
+            $_.Name -match "Leonardo"    -or
+            $_.Name -match "USB Serial"  -or
+            $_.Name -match "USB-Serial"  -or
+            $_.Name -match "CH340"       -or
+            $_.Name -match "CP210"       -or
             $_.Name -match "LPUPS"
         } |
         Where-Object { $_.Name -match "COM\d+" } |

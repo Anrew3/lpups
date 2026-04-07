@@ -120,7 +120,7 @@ function testComPorts() {
       const portMatch = name.match(/\(COM(\d+)\)/);
       const portNum = portMatch ? `COM${portMatch[1]}` : "???";
 
-      const isArduino = /arduino|dfrobot|ch340|cp210|lpups|usb.serial/i.test(name);
+      const isArduino = /arduino|dfrobot|lattepanda|leonardo|ch340|cp210|lpups|usb.serial/i.test(name);
       if (isArduino) {
         pass(`${portNum}: ${name} [${status}] <-- LIKELY ARDUINO`);
         arduinoPort = portNum;
@@ -131,7 +131,7 @@ function testComPorts() {
 
     if (!arduinoPort) {
       warn("No Arduino/DFRobot device detected among COM ports");
-      info("Expected device names: Arduino, DFRobot, CH340, CP210x");
+      info("Expected device names: Arduino, DFRobot, LattePanda, Leonardo, CH340, CP210x");
       info("The serial-reader.ps1 script will try brute-force detection.");
       // Try to use the first available COM port
       const firstPort = devices[0]?.Name?.match(/\(COM(\d+)\)/);
