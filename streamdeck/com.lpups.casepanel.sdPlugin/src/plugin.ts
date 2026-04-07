@@ -18,6 +18,15 @@ streamDeck.logger.setLevel(LogLevel.TRACE);
 // Start reading the Arduino serial port
 serialReader.start();
 
+// Log serial reader errors and stderr
+serialReader.on("stderr", (msg: string) => streamDeck.logger.warn(`[serial stderr] ${msg}`));
+serialReader.on("error",  (msg: string) => streamDeck.logger.error(`[serial] ${msg}`));
+
+// Clean up on exit so the PowerShell process doesn't orphan
+const cleanup = () => { serialReader.stop(); process.exit(0); };
+process.on("SIGTERM", cleanup);
+process.on("SIGINT",  cleanup);
+
 // Register actions
 streamDeck.actions.registerAction(new BatteryStatus());
 streamDeck.actions.registerAction(new PowerRuntime());

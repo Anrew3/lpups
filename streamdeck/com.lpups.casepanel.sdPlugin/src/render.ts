@@ -6,7 +6,10 @@
  * compression. Replaces the previous @napi-rs/canvas implementation.
  */
 
-import { deflateSync } from "zlib";
+import { deflate } from "zlib";
+import { promisify } from "util";
+
+const deflateAsync = promisify(deflate);
 
 // ─── CRC32 ───────────────────────────────────────────────────────────────────
 const CRC_TABLE = new Uint32Array(256);
@@ -29,7 +32,7 @@ function pngChunk(type: string, data: Buffer): Buffer {
   return Buffer.concat([l, t, data, c]);
 }
 
-function buildPNG(w: number, h: number, rgba: Uint8Array): Buffer {
+async function buildPNG(w: number, h: number, rgba: Uint8Array): Promise<Buffer> {
   const ihdr = Buffer.alloc(13);
   ihdr.writeUInt32BE(w, 0);
   ihdr.writeUInt32BE(h, 4);
@@ -39,19 +42,16 @@ function buildPNG(w: number, h: number, rgba: Uint8Array): Buffer {
   const raw = Buffer.alloc(h * rowLen);
   for (let y = 0; y < h; y++) {
     raw[y * rowLen] = 0; // filter: None
-    rgba.copy(Buffer.from(raw.buffer, raw.byteOffset), y * rowLen + 1, y * w * 4, (y + 1) * w * 4);
-  }
-  // Manually copy since Uint8Array.copy isn't available — use Buffer.from
-  for (let y = 0; y < h; y++) {
     const dstOff = y * rowLen + 1;
     const srcOff = y * w * 4;
     for (let i = 0; i < w * 4; i++) raw[dstOff + i] = rgba[srcOff + i];
   }
   const SIG = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
+  const compressed = await deflateAsync(raw);
   return Buffer.concat([
     SIG,
     pngChunk("IHDR", ihdr),
-    pngChunk("IDAT", deflateSync(raw)),
+    pngChunk("IDAT", compressed),
     pngChunk("IEND", Buffer.alloc(0)),
   ]);
 }
@@ -388,7 +388,39 @@ function parseHex(hex: string): [number, number, number] {
   ];
 }
 
-// ─── Public API (unchanged from previous version) ───────────────────────────
+// ─── Image cache (avoids redundant deflate when data unchanged) ─────────────
+const IMAGE_CACHE = new Map<string, string>();
+const MAX_CACHE = 64;
+
+function cacheKey(bg: string, lines: Line[]): string {
+  return bg + "|" + JSON.stringify(lines);
+}
+
+function cacheGet(key: string): string | undefined {
+  return IMAGE_CACHE.get(key);
+}
+
+function cachePut(key: string, value: string): void {
+  if (IMAGE_CACHE.size >= MAX_CACHE) {
+    // Evict oldest entry (first inserted)
+    const oldest = IMAGE_CACHE.keys().next().value;
+    if (oldest !== undefined) IMAGE_CACHE.delete(oldest);
+  }
+  IMAGE_CACHE.set(key, value);
+}
+
+// ─── setImageIfChanged — skip redundant WebSocket sends ─────────────────────
+const lastImages = new WeakMap<object, string>();
+
+/** Only call action.setImage() if the image has actually changed. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export async function setImageIfChanged(action: any, image: string): Promise<void> {
+  if (lastImages.get(action) === image) return;
+  lastImages.set(action, image);
+  await action.setImage(image);
+}
+
+// ─── Public API ─────────────────────────────────────────────────────────────
 
 export interface Line {
   text:   string | number;
@@ -410,8 +442,12 @@ export const C = {
   DKGRAY: "#1a1a1a",
 } as const;
 
-/** Build a 72×72 PNG button and return a base64 data URI. */
+/** Build a 72×72 PNG button and return a base64 data URI (cached). */
 export async function makeButton(bg: string, lines: Line[]): Promise<string> {
+  const key = cacheKey(bg, lines);
+  const cached = cacheGet(key);
+  if (cached) return cached;
+
   const S = 72, R = 6;
   const px = new Uint8Array(S * S * 4);
 
@@ -428,8 +464,10 @@ export async function makeButton(bg: string, lines: Line[]): Promise<string> {
     drawText(px, S, S, txt, 36, l.y, scale, tr, tg, tb, bold);
   }
 
-  const png = buildPNG(S, S, px);
-  return `data:image/png;base64,${png.toString("base64")}`;
+  const png = await buildPNG(S, S, px);
+  const result = `data:image/png;base64,${png.toString("base64")}`;
+  cachePut(key, result);
+  return result;
 }
 
 /** Progress bar  ████░░░ */

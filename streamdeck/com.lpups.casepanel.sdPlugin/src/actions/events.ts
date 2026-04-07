@@ -1,6 +1,6 @@
-import { action, SingletonAction, WillAppearEvent, WillDisappearEvent, KeyDownEvent } from "@elgato/streamdeck";
+import streamDeck, { action, SingletonAction, WillAppearEvent, WillDisappearEvent, KeyDownEvent } from "@elgato/streamdeck";
 import { serialReader } from "../serial-reader";
-import { makeButton, C } from "../render";
+import { makeButton, setImageIfChanged, C } from "../render";
 
 @action({ UUID: "com.lpups.casepanel.events" })
 export class UpsEvents extends SingletonAction {
@@ -24,8 +24,10 @@ export class UpsEvents extends SingletonAction {
 
   override async onWillDisappear(ev: WillDisappearEvent): Promise<void> {
     this.active.delete(ev.action);
-    if (this.active.size === 0)
+    if (this.active.size === 0) {
+      if (this.flashTimer) { clearTimeout(this.flashTimer); this.flashTimer = undefined; }
       serialReader.off("data", this.dataHandler).off("event", this.eventHandler).off("connect", this.connectHandler).off("disconnect", this.disconnectHandler);
+    }
   }
 
   override onKeyDown(_ev: KeyDownEvent): void { /* display-only */ }
@@ -40,18 +42,22 @@ export class UpsEvents extends SingletonAction {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private async renderTo(a: any, flash: boolean): Promise<void> {
-    const d   = serialReader.getData();
-    const bg  = flash ? C.ORANGE : !d.connected ? C.GRAY : C.TEAL;
-    const raw = this.lastEvent || (d.connected ? "(no events)" : "NO SERIAL");
-    const [l0, l1, l2] = this.wrapEvent(raw);
+    try {
+      const d   = serialReader.getData();
+      const bg  = flash ? C.ORANGE : !d.connected ? C.GRAY : C.TEAL;
+      const raw = this.lastEvent || (d.connected ? "(no events)" : "NO SERIAL");
+      const [l0, l1, l2] = this.wrapEvent(raw);
 
-    await a.setTitle("");
-    await a.setImage(await makeButton(bg, [
-      { text: "EVENTS", y: 12, size: 10, color: "#cccccc", bold: false },
-      { text: l0,       y: 30, size: 12 },
-      { text: l1,       y: 46, size: 11, color: "#dddddd" },
-      { text: l2,       y: 61, size: 10, color: "#bbbbbb", bold: false },
-    ]));
+      await a.setTitle("");
+      await setImageIfChanged(a, await makeButton(bg, [
+        { text: "EVENTS", y: 12, size: 10, color: "#cccccc", bold: false },
+        { text: l0,       y: 30, size: 12 },
+        { text: l1,       y: 46, size: 11, color: "#dddddd" },
+        { text: l2,       y: 61, size: 10, color: "#bbbbbb", bold: false },
+      ]));
+    } catch (err) {
+      streamDeck.logger.error(`[events] render error: ${err}`);
+    }
   }
 
   private wrapEvent(s: string): [string, string, string] {

@@ -1,6 +1,6 @@
-import { action, SingletonAction, WillAppearEvent, WillDisappearEvent, KeyDownEvent } from "@elgato/streamdeck";
+import streamDeck, { action, SingletonAction, WillAppearEvent, WillDisappearEvent, KeyDownEvent } from "@elgato/streamdeck";
 import { serialReader, UPSData } from "../serial-reader";
-import { makeButton, battColor, pctBar, noDataButton, C } from "../render";
+import { makeButton, battColor, pctBar, noDataButton, setImageIfChanged, C } from "../render";
 
 @action({ UUID: "com.lpups.casepanel.battery" })
 export class BatteryStatus extends SingletonAction {
@@ -15,7 +15,7 @@ export class BatteryStatus extends SingletonAction {
     serialReader.off("data", this.dataHandler).off("connect", this.connectHandler).off("disconnect", this.disconnectHandler);
     serialReader.on("data",  this.dataHandler).on("connect",  this.connectHandler).on("disconnect",  this.disconnectHandler);
     const d = serialReader.getData();
-    await (d.connected ? this.renderTo(ev.action, d) : ev.action.setImage(await noDataButton("BATTERY")));
+    await (d.connected ? this.renderTo(ev.action, d) : setImageIfChanged(ev.action, await noDataButton("BATTERY")));
   }
 
   override async onWillDisappear(ev: WillDisappearEvent): Promise<void> {
@@ -32,23 +32,27 @@ export class BatteryStatus extends SingletonAction {
 
   private async showNoData(): Promise<void> {
     const img = await noDataButton("BATTERY");
-    for (const a of this.active) await a.setImage(img);
+    for (const a of this.active) await setImageIfChanged(a, img);
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private async renderTo(a: any, d: UPSData): Promise<void> {
-    const { b1, b2 } = d;
-    const worstPct = b2.present ? Math.min(b1.capacity, b2.capacity) : b1.capacity;
-    const bg       = !b2.present ? C.ORANGE : battColor(worstPct);
+    try {
+      const { b1, b2 } = d;
+      const worstPct = b2.present ? Math.min(b1.capacity, b2.capacity) : b1.capacity;
+      const bg       = !b2.present ? C.ORANGE : battColor(worstPct);
 
-    await a.setTitle("");
-    await a.setImage(await makeButton(bg, [
-      { text: "BATTERY",                                            y: 12, size: 10, color: "#cccccc", bold: false },
-      { text: `B1 ${b1.capacity}%${b1.acPresent ? " AC" : ""}`,    y: 29, size: 15 },
-      { text: pctBar(b1.capacity),                                  y: 42, size: 11, color: "#aaffaa", bold: false },
-      { text: b2.present ? `B2 ${b2.capacity}%` : "B2 ABSENT",     y: 56, size: 13 },
-      { text: b2.present ? pctBar(b2.capacity)  : "-------",        y: 68, size: 11,
-        color: b2.present ? "#aaffaa" : "#ff8888", bold: false },
-    ]));
+      await a.setTitle("");
+      await setImageIfChanged(a, await makeButton(bg, [
+        { text: "BATTERY",                                            y: 12, size: 10, color: "#cccccc", bold: false },
+        { text: `B1 ${b1.capacity}%${b1.acPresent ? " AC" : ""}`,    y: 29, size: 15 },
+        { text: pctBar(b1.capacity),                                  y: 42, size: 11, color: "#aaffaa", bold: false },
+        { text: b2.present ? `B2 ${b2.capacity}%` : "B2 ABSENT",     y: 56, size: 13 },
+        { text: b2.present ? pctBar(b2.capacity)  : "-------",        y: 68, size: 11,
+          color: b2.present ? "#aaffaa" : "#ff8888", bold: false },
+      ]));
+    } catch (err) {
+      streamDeck.logger.error(`[battery] render error: ${err}`);
+    }
   }
 }
