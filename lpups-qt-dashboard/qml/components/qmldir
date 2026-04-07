@@ -1,0 +1,6 @@
+module components
+GlassCard 1.0 GlassCard.qml
+CircularGauge 1.0 CircularGauge.qml
+StatusBadge 1.0 StatusBadge.qml
+StatRow 1.0 StatRow.qml
+ConfirmButton 1.0 ConfirmButton.qml
