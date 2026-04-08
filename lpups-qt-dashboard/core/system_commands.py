@@ -41,6 +41,57 @@ class _NetworkWorker(QThread):
             self.finished.emit(f"ERROR:{e}")
 
 
+class _AutoConnectWorker(QThread):
+    """Runs auto-connect.ps1 off the main thread."""
+    finished = Signal(str, str)   # (result_type, ssid)
+    progress = Signal(str)        # info lines for status display
+
+    def __init__(self, mode: str = "auto", parent=None):
+        super().__init__(parent)
+        self._mode = mode
+
+    def run(self):
+        script = os.path.join(SCRIPTS_DIR, "auto-connect.ps1")
+        if not os.path.exists(script):
+            self.finished.emit("error", "auto-connect.ps1 not found")
+            return
+        try:
+            proc = subprocess.Popen(
+                ["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass",
+                 "-File", script, "-Mode", self._mode],
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                text=True, bufsize=1,
+                creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0,
+            )
+            for line in proc.stdout:
+                line = line.strip()
+                if line.startswith("INFO:"):
+                    self.progress.emit(line[5:])
+                elif line.startswith("RESULT:WIFI_CONNECTED:"):
+                    self.finished.emit("wifi", line[22:])
+                    proc.wait()
+                    return
+                elif line.startswith("RESULT:WIFI_ALREADY:"):
+                    self.finished.emit("wifi", line[20:])
+                    proc.wait()
+                    return
+                elif line in ("RESULT:CELLULAR_FALLBACK", "RESULT:CELLULAR_ALREADY"):
+                    self.finished.emit("cellular", "")
+                    proc.wait()
+                    return
+                elif line == "RESULT:NO_CONNECTIVITY":
+                    self.finished.emit("none", "")
+                    proc.wait()
+                    return
+
+            proc.wait(timeout=60)
+            self.finished.emit("none", "")
+        except subprocess.TimeoutExpired:
+            self.finished.emit("error", "timeout")
+        except Exception as e:
+            self.finished.emit("error", str(e))
+
+
 class SystemCommands(QObject):
     """Exposes system actions to QML."""
 
@@ -49,11 +100,18 @@ class SystemCommands(QObject):
     shutdownStarted = Signal()
     restartStarted = Signal()
 
+    # Auto-connect signals
+    autoConnectStarted = Signal()
+    autoConnectProgress = Signal(str)    # status message
+    autoConnectFinished = Signal(str, str)  # (type, ssid)
+
     def __init__(self, parent=None):
         super().__init__(parent)
         self._network_mode = "UNKNOWN"
         self._switching = False
         self._worker = None
+        self._ac_worker = None
+        self._auto_connecting = False
 
     @Property(str, notify=networkModeChanged)
     def networkMode(self):
@@ -123,4 +181,53 @@ class SystemCommands(QObject):
             self._network_mode = "UNKNOWN"
         else:
             self._network_mode = result
+        self.networkModeChanged.emit(self._network_mode)
+
+    # ── Auto-connect ────────────────────────────────────────────────────
+
+    @Property(bool, notify=autoConnectStarted)
+    def autoConnecting(self):
+        return self._auto_connecting
+
+    @Slot()
+    def autoConnect(self):
+        """Auto-connect to best available network (WiFi then cellular)."""
+        if self._auto_connecting:
+            return
+        self._auto_connecting = True
+        self.autoConnectStarted.emit()
+        log.info("Auto-connect started")
+
+        self._ac_worker = _AutoConnectWorker("auto")
+        self._ac_worker.progress.connect(self._on_ac_progress)
+        self._ac_worker.finished.connect(self._on_ac_finished)
+        self._ac_worker.start()
+
+    @Slot()
+    def scanNetworks(self):
+        """Scan for available networks without connecting."""
+        if self._auto_connecting:
+            return
+        self._auto_connecting = True
+        self.autoConnectStarted.emit()
+
+        self._ac_worker = _AutoConnectWorker("scan")
+        self._ac_worker.progress.connect(self._on_ac_progress)
+        self._ac_worker.finished.connect(self._on_ac_finished)
+        self._ac_worker.start()
+
+    def _on_ac_progress(self, msg: str):
+        log.info(f"Auto-connect: {msg}")
+        self.autoConnectProgress.emit(msg)
+
+    def _on_ac_finished(self, result_type: str, ssid: str):
+        self._auto_connecting = False
+        log.info(f"Auto-connect result: {result_type} {ssid}")
+        self.autoConnectFinished.emit(result_type, ssid)
+
+        # Update network mode based on result
+        if result_type == "wifi":
+            self._network_mode = "WIFI"
+        elif result_type == "cellular":
+            self._network_mode = "CELLULAR"
         self.networkModeChanged.emit(self._network_mode)

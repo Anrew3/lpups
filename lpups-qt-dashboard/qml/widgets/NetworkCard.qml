@@ -12,11 +12,21 @@ GlassCard {
 
     property string mode: "UNKNOWN"
     property bool switching: false
+    property bool autoConnecting: false
+    property string acStatus: ""
 
     Connections {
         target: systemCtl
         function onNetworkModeChanged(m) { netCard.mode = m }
         function onNetworkSwitching(s) { netCard.switching = s }
+        function onAutoConnectStarted() { netCard.autoConnecting = true; netCard.acStatus = "Scanning..." }
+        function onAutoConnectProgress(msg) { netCard.acStatus = msg }
+        function onAutoConnectFinished(t, ssid) {
+            netCard.autoConnecting = false
+            if (t === "wifi") netCard.acStatus = "Connected: " + ssid
+            else if (t === "cellular") netCard.acStatus = "Cellular active"
+            else netCard.acStatus = "No connectivity"
+        }
     }
 
     ColumnLayout {
@@ -50,6 +60,51 @@ GlassCard {
         }
 
         Item { Layout.fillHeight: true }
+
+        // Auto-connect status
+        Text {
+            visible: acStatus !== ""
+            Layout.alignment: Qt.AlignHCenter
+            text: acStatus
+            color: autoConnecting ? "#58a6ff" : (acStatus.startsWith("No") ? "#f85149" : "#3fb950")
+            font.pixelSize: 9
+            font.italic: true
+            maximumLineCount: 1
+            elide: Text.ElideRight
+
+            SequentialAnimation on opacity {
+                running: autoConnecting
+                loops: Animation.Infinite
+                NumberAnimation { to: 0.3; duration: 400 }
+                NumberAnimation { to: 1.0; duration: 400 }
+            }
+        }
+
+        // Auto-connect button
+        Rectangle {
+            Layout.fillWidth: true
+            Layout.preferredHeight: 28
+            radius: 8
+            color: autoConnecting ? "#21262d" : "#1a3fb950"
+            border.color: autoConnecting ? "#484f58" : "#3fb950"
+            border.width: 1
+            opacity: (switching || autoConnecting) ? 0.5 : 1
+
+            Text {
+                anchors.centerIn: parent
+                text: autoConnecting ? "\u23F3 Connecting..." : "\u26A1 Auto-Connect"
+                color: autoConnecting ? "#8b949e" : "#3fb950"
+                font.pixelSize: 10
+                font.weight: Font.Medium
+            }
+
+            MouseArea {
+                anchors.fill: parent
+                enabled: !switching && !autoConnecting
+                cursorShape: Qt.PointingHandCursor
+                onClicked: systemCtl.autoConnect()
+            }
+        }
 
         // Toggle button
         Rectangle {
