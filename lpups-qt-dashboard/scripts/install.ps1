@@ -28,21 +28,16 @@ if ($LASTEXITCODE -ne 0) {
 }
 Write-Host "  Dependencies installed" -ForegroundColor Green
 
-# 3. Copy network scripts from Electron dashboard if they exist
-Write-Host "`n[3/4] Setting up scripts..." -ForegroundColor Yellow
-$electronScripts = Join-Path (Split-Path -Parent $root) "lpups-dashboard\scripts"
-if (Test-Path $electronScripts) {
-    $targets = @("network.ps1", "diagnostics-stream.ps1")
-    foreach ($f in $targets) {
-        $src = Join-Path $electronScripts $f
-        $dst = Join-Path $root "scripts\$f"
-        if ((Test-Path $src) -and !(Test-Path $dst)) {
-            Copy-Item $src $dst
-            Write-Host "  Copied $f from Electron dashboard" -ForegroundColor Green
-        }
-    }
+# 3. Clean up old Electron dashboard if present
+Write-Host "`n[3/4] Cleaning up old files..." -ForegroundColor Yellow
+$electronDir = Join-Path (Split-Path -Parent $root) "lpups-dashboard"
+if (Test-Path $electronDir) {
+    Write-Host "  Removing old Electron dashboard..." -ForegroundColor Yellow
+    Remove-Item -Recurse -Force $electronDir -ErrorAction SilentlyContinue
+    Write-Host "  Old Electron dashboard removed" -ForegroundColor Green
+} else {
+    Write-Host "  No old files to clean up" -ForegroundColor Green
 }
-Write-Host "  Scripts ready" -ForegroundColor Green
 
 # 4. Create startup shortcut (optional)
 if (!$NoStartup) {

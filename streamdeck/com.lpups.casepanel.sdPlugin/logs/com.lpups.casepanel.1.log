@@ -1,0 +1,6 @@
+2026-04-07T01:56:41.912Z WARN  Log level cannot be set to TRACE whilst not in debug mode.
+2026-04-07T01:56:41.921Z ERROR Process encountered uncaught exception 
+Error: spawn powershell.exe ENOENT
+    at ChildProcess._handle.onexit (node:internal/child_process:285:19)
+    at onErrorNT (node:internal/child_process:483:16)
+    at process.processTicksAndRejections (node:internal/process/task_queues:90:21)
