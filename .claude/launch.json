@@ -1,0 +1,19 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "Qt Dashboard (PySide6)",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": ["main.py", "--dev"],
+      "port": 8766,
+      "cwd": "lpups-qt-dashboard"
+    },
+    {
+      "name": "Stream Deck Plugin (watch)",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 0,
+      "cwd": "streamdeck/com.lpups.casepanel.sdPlugin"
+    }
+  ]
+}

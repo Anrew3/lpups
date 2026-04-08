@@ -9,10 +9,6 @@ npm-debug.log*
 bin/
 out/
 dist/
-lpups-dashboard/out/
-
-# Electron
-lpups-dashboard/.vite/
 
 # OS
 .DS_Store
