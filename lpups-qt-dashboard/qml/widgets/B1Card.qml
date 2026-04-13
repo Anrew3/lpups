@@ -7,7 +7,7 @@ import "../components"
  * Circular gauge with voltage, current direction, temperature.
  */
 GlassCard {
-    title: "B1 \u2022 18650 UPS"
+    title: "18650 UPS"
     accentColor: upsData.b1Charging ? "#3fb950" : "#58a6ff"
     highlighted: upsData.b1AcPresent
 
@@ -85,6 +85,12 @@ GlassCard {
             label: "Direction"
             value: upsData.b1CurrentDirection
             valueColor: "#8b949e"
+        }
+        StatRow {
+            Layout.fillWidth: true
+            label: "Runtime"
+            value: upsData.b1RuntimeStr
+            valueColor: "#88ccff"
         }
         StatRow {
             Layout.fillWidth: true

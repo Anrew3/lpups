@@ -3,7 +3,7 @@
  *
  * Spawns scripts/serial-reader.ps1 which opens the Arduino COM port at
  * 115200 baud and streams every line to stdout.  Parses the structured
- * B1/B2 telemetry blocks emitted by the Arduino sketch and fires typed
+ * B1 telemetry blocks emitted by the Arduino sketch and fires typed
  * EventEmitter events.
  *
  * Events:
@@ -34,25 +34,13 @@ export interface B1Data {
   runtime:     number;   // seconds
   charging:    boolean;
   acPresent:   boolean;
-  voltage:     number;   // mV  (not in serial output — always 0)
-  current:     number;   // mA  (not in serial output — always 0)
-  temperature: number;   // °C  (not in serial output — always 0)
-}
-
-export interface B2Data {
-  voltage:    number;   // mV
-  capacity:   number;   // 0–100 %
-  present:    boolean;
-  charging:   boolean;
-  draw:       number;   // Watts
-  avgCurrent: number;   // mA (5-min average)
-  runtime:    number;   // minutes remaining
-  state: "CHARGING" | "GOOD" | "LOW" | "CRITICAL" | "ABSENT" | "UNKNOWN";
+  voltage:     number;   // mV
+  current:     number;   // mA
+  temperature: number;   // °C
 }
 
 export interface UPSData {
   b1:         B1Data;
-  b2:         B2Data;
   lastEvent:  string;
   lastUpdate: Date;
   connected:  boolean;
@@ -62,11 +50,6 @@ export interface UPSData {
 
 function safeInt(val: string, fallback = 0): number {
   const n = parseInt(val, 10);
-  return isNaN(n) ? fallback : n;
-}
-
-function safeFloat(val: string, fallback = 0): number {
-  const n = parseFloat(val);
   return isNaN(n) ? fallback : n;
 }
 
@@ -80,17 +63,14 @@ class SerialReader extends EventEmitter {
   private _lastError = "";
 
   // Accumulate key-value lines into a pending packet until a blank line fires them
-  private parseBlock: "NONE" | "B1" | "B2" = "NONE";
+  private parseBlock: "NONE" | "B1" = "NONE";
   private pending = {
     b1: {} as Partial<B1Data>,
-    b2: {} as Partial<B2Data>,
   };
 
   private _data: UPSData = {
     b1: { capacity: 0, runtime: 0, charging: false, acPresent: false,
           voltage: 0, current: 0, temperature: 0 },
-    b2: { voltage: 0, capacity: 0, present: false, charging: false,
-          draw: 0, avgCurrent: 0, runtime: 0, state: "UNKNOWN" },
     lastEvent:  "",
     lastUpdate: new Date(0),
     connected:  false,
@@ -100,7 +80,6 @@ class SerialReader extends EventEmitter {
     return {
       ...this._data,
       b1: { ...this._data.b1 },
-      b2: { ...this._data.b2 },
     };
   }
 
@@ -139,7 +118,6 @@ class SerialReader extends EventEmitter {
         "-File", PS_SCRIPT,
       ]);
     } catch (err: unknown) {
-      // spawn itself can throw synchronously in edge cases
       const msg = err instanceof Error ? err.message : String(err);
       this._lastError = `Failed to spawn PowerShell: ${msg}`;
       this.emit("error", this._lastError);
@@ -153,7 +131,6 @@ class SerialReader extends EventEmitter {
     child.on("error", (err: Error) => {
       this._lastError = `PowerShell spawn error: ${err.message}`;
       this.emit("stderr", this._lastError);
-      // The 'close' event will fire after this, triggering retry logic
     });
 
     // Only set up readline if stdout is available
@@ -201,7 +178,6 @@ class SerialReader extends EventEmitter {
       this.emit("error", this._lastError);
       return;
     }
-    // Exponential backoff: 8s → 16s → 32s → ... → capped at 120s
     const delay = Math.min(BASE_RETRY_MS * Math.pow(2, this.retryCount), MAX_RETRY_MS);
     const jitter = Math.random() * 1000;
     this.retryCount++;
@@ -209,7 +185,7 @@ class SerialReader extends EventEmitter {
   }
 
   private handleLine(line: string): void {
-    // Blank line = end of a complete B1 + B2 packet
+    // Blank line = end of a complete packet
     if (!line) {
       if (this.parseBlock !== "NONE") {
         this.flushPending();
@@ -221,7 +197,7 @@ class SerialReader extends EventEmitter {
     // PS script connection / error markers
     if (line.startsWith("CONNECTED:")) {
       this._data.connected = true;
-      this.retryCount = 0; // Reset backoff on successful connection
+      this.retryCount = 0;
       this.emit("connect", line.slice("CONNECTED:".length));
       return;
     }
@@ -239,15 +215,10 @@ class SerialReader extends EventEmitter {
       return;
     }
 
-    // Block headers
+    // Block header
     if (line.includes("B1 (18650 UPS)")) {
       this.parseBlock = "B1";
       this.pending.b1 = {};
-      return;
-    }
-    if (line.includes("B2 (12V LiON pack)")) {
-      this.parseBlock = "B2";
-      this.pending.b2 = {};
       return;
     }
 
@@ -259,63 +230,33 @@ class SerialReader extends EventEmitter {
 
     if (this.parseBlock === "B1") {
       this.parseB1Line(key, val);
-    } else if (this.parseBlock === "B2") {
-      this.parseB2Line(key, val);
     }
   }
 
   private parseB1Line(key: string, val: string): void {
     const b = this.pending.b1;
     switch (key) {
-      case "capacity":    b.capacity  = safeInt(val);                break;
-      case "runtime":     b.runtime   = safeInt(val);                break;
-      case "charging":    b.charging  = val.toUpperCase() === "YES"; break;
-      case "ac present":  b.acPresent = val.toUpperCase() === "YES"; break;
-    }
-  }
-
-  private parseB2Line(key: string, val: string): void {
-    const b = this.pending.b2;
-    switch (key) {
-      case "voltage":     b.voltage    = safeInt(val);                       break;
-      case "capacity":    b.capacity   = safeInt(val);                       break;
-      case "present":     b.present    = val.toUpperCase() === "YES";        break;
-      case "charging":    b.charging   = val.toUpperCase() === "YES";        break;
-      case "draw":        b.draw       = safeFloat(val);                     break;
-      case "avg current": b.avgCurrent = safeInt(val);                       break;
-      case "runtime":     b.runtime    = val === "--" ? 0 : safeInt(val);    break;
-      case "state":       b.state      = this.toB2State(val);               break;
-    }
-  }
-
-  private toB2State(s: string): B2Data["state"] {
-    switch (s.toUpperCase()) {
-      case "CHARGING":  return "CHARGING";
-      case "GOOD":      return "GOOD";
-      case "LOW":       return "LOW";
-      case "CRITICAL":  return "CRITICAL";
-      case "ABSENT":    return "ABSENT";
-      default:          return "UNKNOWN";
+      case "capacity":    b.capacity    = safeInt(val);                break;
+      case "runtime":     b.runtime     = safeInt(val);                break;
+      case "charging":    b.charging    = val.toUpperCase() === "YES"; break;
+      case "ac present":  b.acPresent   = val.toUpperCase() === "YES"; break;
+      case "voltage":     b.voltage     = safeInt(val);                break;
+      case "current":     b.current     = safeInt(val);                break;
+      case "temperature": case "temp":
+                          b.temperature = safeInt(val);                break;
     }
   }
 
   private flushPending(): void {
     const b1 = this.pending.b1;
-    const b2 = this.pending.b2;
 
-    if (b1.capacity  !== undefined) this._data.b1.capacity  = b1.capacity;
-    if (b1.runtime   !== undefined) this._data.b1.runtime   = b1.runtime;
-    if (b1.charging  !== undefined) this._data.b1.charging  = b1.charging;
-    if (b1.acPresent !== undefined) this._data.b1.acPresent = b1.acPresent;
-
-    if (b2.voltage    !== undefined) this._data.b2.voltage    = b2.voltage;
-    if (b2.capacity   !== undefined) this._data.b2.capacity   = b2.capacity;
-    if (b2.present    !== undefined) this._data.b2.present    = b2.present;
-    if (b2.charging   !== undefined) this._data.b2.charging   = b2.charging;
-    if (b2.draw       !== undefined) this._data.b2.draw       = b2.draw;
-    if (b2.avgCurrent !== undefined) this._data.b2.avgCurrent = b2.avgCurrent;
-    if (b2.runtime    !== undefined) this._data.b2.runtime    = b2.runtime;
-    if (b2.state      !== undefined) this._data.b2.state      = b2.state;
+    if (b1.capacity    !== undefined) this._data.b1.capacity    = b1.capacity;
+    if (b1.runtime     !== undefined) this._data.b1.runtime     = b1.runtime;
+    if (b1.charging    !== undefined) this._data.b1.charging    = b1.charging;
+    if (b1.acPresent   !== undefined) this._data.b1.acPresent   = b1.acPresent;
+    if (b1.voltage     !== undefined) this._data.b1.voltage     = b1.voltage;
+    if (b1.current     !== undefined) this._data.b1.current     = b1.current;
+    if (b1.temperature !== undefined) this._data.b1.temperature = b1.temperature;
 
     this._data.lastUpdate = new Date();
     if (this.listenerCount("data") > 0) {

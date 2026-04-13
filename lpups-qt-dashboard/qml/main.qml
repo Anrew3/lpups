@@ -73,16 +73,10 @@ ApplicationWindow {
             Layout.fillHeight: true
             spacing: 10
 
-            // Left: B1 Battery Card
+            // Battery Card
             B1Card {
                 Layout.fillHeight: true
-                Layout.preferredWidth: 280
-            }
-
-            // Center: B2 Battery Card
-            B2Card {
-                Layout.fillHeight: true
-                Layout.preferredWidth: 280
+                Layout.preferredWidth: 320
             }
 
             // Right column

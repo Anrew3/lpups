@@ -8,7 +8,7 @@ import "../components"
  */
 GlassCard {
     id: sparkCard
-    title: "POWER DRAW"
+    title: "CURRENT DRAW"
 
     ColumnLayout {
         anchors.fill: parent
@@ -22,7 +22,7 @@ GlassCard {
             Column {
                 Text { text: "NOW"; color: "#6e7681"; font.pixelSize: 9 }
                 Text {
-                    text: powerHistory.current.toFixed(0) + "W"
+                    text: powerHistory.current.toFixed(0) + "mA"
                     color: "#58a6ff"
                     font.pixelSize: 16
                     font.weight: Font.Bold
@@ -31,7 +31,7 @@ GlassCard {
             Column {
                 Text { text: "AVG"; color: "#6e7681"; font.pixelSize: 9 }
                 Text {
-                    text: powerHistory.avg.toFixed(1) + "W"
+                    text: powerHistory.avg.toFixed(0) + "mA"
                     color: "#8b949e"
                     font.pixelSize: 14
                 }
@@ -39,7 +39,7 @@ GlassCard {
             Column {
                 Text { text: "PEAK"; color: "#6e7681"; font.pixelSize: 9 }
                 Text {
-                    text: powerHistory.peak.toFixed(0) + "W"
+                    text: powerHistory.peak.toFixed(0) + "mA"
                     color: "#f0883e"
                     font.pixelSize: 14
                 }

@@ -46,11 +46,7 @@ class SerialReaderThread(QThread):
             "b1": {
                 "voltage": 0, "capacity": 0, "current": 0,
                 "acPresent": False, "charging": False, "temperature": 0,
-            },
-            "b2": {
-                "present": False, "voltage": 0, "current": 0,
-                "remaining": 0, "charging": False,
-                "powerDrawW": 0, "avgCurrentMA": 0, "runtimeMins": 0,
+                "runtime": 0,
             },
         }
 
@@ -161,7 +157,6 @@ class SerialReaderThread(QThread):
             return bool(re.search(r"=\s*1", line) or re.search(r"=\s*(?:yes|true)", line, re.I))
 
         b1 = self._state["b1"]
-        b2 = self._state["b2"]
 
         # B1 fields
         if "b1 voltage" in lower:
@@ -176,25 +171,8 @@ class SerialReaderThread(QThread):
             b1["charging"] = bool_val()
         elif "b1 temp" in lower:
             b1["temperature"] = num_val()
-
-        # B2 fields
-        elif "b2 present" in lower:
-            b2["present"] = bool_val()
-        elif "b2 voltage" in lower:
-            b2["voltage"] = num_val()
-        elif "b2 current" in lower and "avg" not in lower:
-            b2["current"] = num_val()
-        elif "b2 remaining" in lower:
-            b2["remaining"] = num_val()
-        elif "b2 charg" in lower:
-            b2["charging"] = bool_val()
-        elif "b2 draw" in lower:
-            b2["powerDrawW"] = num_val()
-        elif "avg current" in lower:
-            b2["avgCurrentMA"] = num_val()
-        elif "b2 runtime" in lower:
-            m = re.search(r"(\d+)\s*min", line, re.I)
-            b2["runtimeMins"] = int(m.group(1)) if m else 0
+        elif "b1 runtime" in lower:
+            b1["runtime"] = num_val()
         else:
             return  # unrecognized line, skip emit
 

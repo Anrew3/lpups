@@ -1,5 +1,5 @@
 # diagnostics.ps1
-# Runs 15 sanity checks against the LattePanda system and writes a human-
+# Runs 14 sanity checks against the LattePanda system and writes a human-
 # readable report to -OutFile.  Outputs "SUMMARY:pass|warn|fail" on the
 # last line of stdout so the plugin can parse the result counts without
 # reading the file.
@@ -7,19 +7,18 @@
 # Checks:
 #  1  Arduino serial connected    (from plugin state JSON)
 #  2  B1 18650 capacity > 20%     (from plugin state JSON)
-#  3  B2 12V pack present         (from plugin state JSON)
-#  4  WiFi adapter exists
-#  5  Cellular/WWAN adapter exists
-#  6  Internet reachable (1.1.1.1)
-#  7  Tailscale service running
-#  8  Tailscale has an IP assigned
-#  9  RDP enabled in registry
-# 10  RDP service (TermService) running
-# 11  RDP firewall rule active
-# 12  NVMe/SSD health = Healthy
-# 13  C: drive free space >= 5 GB
-# 14  Hibernate / sleep disabled
-# 15  Windows auto-login configured
+#  3  WiFi adapter exists
+#  4  Cellular/WWAN adapter exists
+#  5  Internet reachable (1.1.1.1)
+#  6  Tailscale service running
+#  7  Tailscale has an IP assigned
+#  8  RDP enabled in registry
+#  9  RDP service (TermService) running
+# 10  RDP firewall rule active
+# 11  NVMe/SSD health = Healthy
+# 12  C: drive free space >= 5 GB
+# 13  Hibernate / sleep disabled
+# 14  Windows auto-login configured
 
 param(
     [string]$StateFile = "",
@@ -33,23 +32,20 @@ function Add-Check {
     $results.Add([PSCustomObject]@{ Name=$Name; Status=$Status; Detail=$Detail })
 }
 
-# ── 1-3  Arduino / battery state (from plugin JSON) ──────────────────────────
+# ── 1-2  Arduino / battery state (from plugin JSON) ──────────────────────────
 $serialOk = $false
 $b1Ok     = $false
-$b2Ok     = $false
 
 if ($StateFile -and (Test-Path $StateFile)) {
     try {
         $state    = Get-Content $StateFile -Raw | ConvertFrom-Json
         $serialOk = [bool]$state.connected
         $b1Ok     = [int]$state.b1Capacity -gt 20
-        $b2Ok     = [bool]$state.b2Present
     } catch { }
 }
 
 Add-Check "Arduino Serial"      $(if ($serialOk) {"PASS"} else {"FAIL"}) $(if ($serialOk) {"Connected, data flowing"} else {"No data from serial port"})
 Add-Check "B1 UPS Capacity"     $(if ($b1Ok)     {"PASS"} else {"WARN"}) $(if ($b1Ok)     {"Above 20%"}               else {"Below 20% — UPS buffer low"})
-Add-Check "B2 12V Pack"         $(if ($b2Ok)     {"PASS"} else {"WARN"}) $(if ($b2Ok)     {"Present"}                 else {"Not detected on VBUS"})
 
 # ── 4  WiFi adapter ──────────────────────────────────────────────────────────
 $wifi = Get-NetAdapter -ErrorAction SilentlyContinue |

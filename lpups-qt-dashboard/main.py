@@ -61,9 +61,9 @@ def main():
 
     def on_serial_data(data: dict):
         ups_data.updateFromDict(data)
-        # Add power draw to history
-        b2_draw = data.get("b2", {}).get("powerDrawW", 0)
-        power_history.addPoint(float(b2_draw))
+        # Track current draw in power history
+        b1_current = abs(data.get("b1", {}).get("current", 0))
+        power_history.addPoint(float(b1_current))
         # Broadcast to Stream Deck
         ws_server.broadcast("data", ups_data.to_dict())
 

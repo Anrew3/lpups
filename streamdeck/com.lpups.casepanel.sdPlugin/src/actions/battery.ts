@@ -41,11 +41,11 @@ export class BatteryStatus extends SingletonAction {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private async renderTo(a: any, d: UPSData): Promise<void> {
     try {
-      const { b1, b2 } = d;
-      const pct     = b2.present ? Math.min(b1.capacity, b2.capacity) : b1.capacity;
-      const bg      = !b2.present ? C.ORANGE : battColor(pct);
+      const { b1 } = d;
+      const pct     = b1.capacity;
+      const bg      = battColor(pct);
       const barFill = pct >= 50 ? "#22cc66" : pct >= 25 ? "#cccc22" : pct >= 10 ? "#cc8822" : "#cc2222";
-      const key     = `bat|${bg}|${b1.capacity}|${b2.capacity}|${b2.present}|${b1.acPresent}`;
+      const key     = `bat|${bg}|${b1.capacity}|${b1.acPresent}|${b1.charging}`;
 
       await a.setTitle("");
       await setImageIfChanged(a, await cachedImage(key, () => {
@@ -64,16 +64,15 @@ export class BatteryStatus extends SingletonAction {
         // Divider
         drawDivider(px, 50);
 
-        // B1 mini bar with label
-        text(px, "B1", 12, 58, 1, "#aaaaaa", false);
-        drawBar(px, 22, 55, 42, 3, b1.capacity, "#88ccff", "#222222");
+        // Status info
+        const status = b1.charging ? "CHARGING" : b1.acPresent ? "AC POWER" : "BATTERY";
+        text(px, status, 36, 58, 1, b1.charging ? "#44ff88" : "#aaaaaa", b1.charging);
 
-        // B2 mini bar or ABSENT warning
-        text(px, "B2", 12, 67, 1, "#aaaaaa", false);
-        if (b2.present) {
-          drawBar(px, 22, 64, 42, 3, b2.capacity, "#88ccff", "#222222");
-        } else {
-          text(px, "ABSENT", 46, 67, 1, "#ff8888", true);
+        // Runtime
+        const rtMin = Math.floor(b1.runtime / 60);
+        const rtStr = b1.runtime > 0 ? (rtMin >= 60 ? `${Math.floor(rtMin / 60)}h ${rtMin % 60}m` : `${rtMin}m`) : "";
+        if (rtStr) {
+          text(px, rtStr, 36, 67, 1, "#88ccff", false);
         }
 
         return px;

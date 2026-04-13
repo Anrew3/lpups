@@ -41,27 +41,26 @@ export class PowerRuntime extends SingletonAction {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private async renderTo(a: any, d: UPSData): Promise<void> {
     try {
-      const { b2 }    = d;
-      const bg        = !b2.present ? C.GRAY : b2.state === "CHARGING" ? C.TEAL : C.BLUE;
-      const rtH       = Math.floor(b2.runtime / 60);
-      const rtM       = b2.runtime % 60;
-      const runtime   = b2.present && b2.runtime > 0 ? (rtH > 0 ? `${rtH}h ${rtM}m` : `${rtM}m`) : "--";
-      const wattStr   = b2.present ? `${b2.draw}W` : "--";
-      const rtScale   = runtime.length <= 6 ? 2 : 1;
-      const key       = `pwr|${bg}|${b2.present}|${b2.draw}|${b2.avgCurrent}|${b2.runtime}|${b2.state}`;
+      const { b1 }  = d;
+      const bg      = b1.charging ? C.TEAL : b1.acPresent ? C.BLUE : C.GRAY;
+      const volts   = b1.voltage > 0 ? `${(b1.voltage / 1000).toFixed(2)}V` : "--";
+      const currStr = b1.current !== 0 ? `${b1.current}mA` : "--";
+      const rtMin   = Math.floor(b1.runtime / 60);
+      const runtime = b1.runtime > 0 ? (rtMin >= 60 ? `${Math.floor(rtMin / 60)}h ${rtMin % 60}m` : `${rtMin}m`) : "--";
+      const key     = `pwr|${bg}|${b1.voltage}|${b1.current}|${b1.runtime}|${b1.charging}`;
 
       await a.setTitle("");
       await setImageIfChanged(a, await cachedImage(key, () => {
         const px = createCanvas(bg);
 
         // Bolt icon (yellow if charging, blue-ish otherwise)
-        drawBoltIcon(px, 36, 3, b2.state === "CHARGING" ? "#ffdd44" : "#88ccff");
+        drawBoltIcon(px, 36, 3, b1.charging ? "#ffdd44" : "#88ccff");
 
-        // Big wattage (scale 2)
-        text(px, wattStr, 36, 28, 2);
+        // Voltage (scale 2)
+        text(px, volts, 36, 28, 2);
 
-        // Current draw
-        text(px, b2.present ? `~${b2.avgCurrent}mA` : "-- mA", 36, 39, 1, "#aaddff", false);
+        // Current
+        text(px, currStr, 36, 39, 1, "#aaddff", false);
 
         // Divider
         drawDivider(px, 42);
@@ -69,8 +68,8 @@ export class PowerRuntime extends SingletonAction {
         // Runtime label
         text(px, "RUNTIME", 36, 52, 1, "#888888", false);
 
-        // Runtime value (auto-scale: scale 2 if ≤6 chars, else scale 1)
-        text(px, runtime, 36, 67, rtScale);
+        // Runtime value
+        text(px, runtime, 36, 67, runtime.length <= 6 ? 2 : 1);
 
         return px;
       }));

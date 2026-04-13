@@ -3,11 +3,11 @@
   "Description": "LattePanda UPS monitoring and control — battery status, power draw, network toggle, and system diagnostics.",
   "com.lpups.casepanel.battery": {
     "Name": "Battery Status",
-    "Tooltip": "B1 (18650 UPS) and B2 (12V LiON pack) capacity, state, and charging indicator."
+    "Tooltip": "18650 UPS battery capacity, charging state, and AC power indicator."
   },
   "com.lpups.casepanel.power": {
     "Name": "Power and Runtime",
-    "Tooltip": "Live power draw in Watts and estimated minutes remaining on the 12V pack."
+    "Tooltip": "Voltage, current, and estimated runtime from the UPS battery."
   },
   "com.lpups.casepanel.network": {
     "Name": "Network Mode",

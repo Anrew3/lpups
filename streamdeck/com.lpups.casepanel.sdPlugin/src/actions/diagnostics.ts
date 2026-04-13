@@ -137,7 +137,6 @@ export class Diagnostics extends SingletonAction {
       writeFileSync(STATE_FILE, JSON.stringify({
         connected: sd.connected,
         b1Capacity: sd.b1.capacity,
-        b2Present: sd.b2.present,
         networkType: this.connResult.type,
         networkSSID: this.connResult.ssid || "",
       }));
